@@ -49,6 +49,13 @@ class LockScreenNotificationProvider(private val context: Context) : MediaNotifi
   override fun handleCustomCommand(session: MediaSession, action: String, extras: Bundle): Boolean =
     standard.handleCustomCommand(session, action, extras)
 
+  override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo {
+    return MediaNotification.Provider.NotificationChannelInfo(
+        CHANNEL_ID,
+        "Now playing"
+    )
+  }
+  
   private fun ensureChannel() {
     val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     if (manager.getNotificationChannel(CHANNEL_ID) == null) {
