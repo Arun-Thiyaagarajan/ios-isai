@@ -60,6 +60,7 @@ export const icons = {
   sortDescending: { ios: 'arrow.down', android: 'arrow_downward' },
   sleepTimer: { ios: 'moon.zzz', android: 'bedtime' },
   equalizer: { ios: 'slider.vertical.3', android: 'equalizer' },
+  progressStyle: { ios: 'waveform.path', android: 'graphic_eq' },
 
   // Library content
   song: { ios: 'music.note', android: 'music_note' },

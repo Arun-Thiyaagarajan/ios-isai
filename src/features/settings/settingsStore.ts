@@ -74,7 +74,11 @@ export type Settings = {
   playerThemeOptions: PlayerThemeOptions;
   /** Time-of-day greeting at the top of Home. */
   showGreeting: boolean;
+  /** Seek bar on Now Playing and Lyrics: a moving wave while playing, or a plain line. */
+  progressStyle: ProgressStyle;
 };
+
+export type ProgressStyle = 'wavy' | 'straight';
 
 export const settingsDefaults: Settings = {
   profileName: '',
@@ -99,6 +103,7 @@ export const settingsDefaults: Settings = {
   playerTheme: DEFAULT_PLAYER_THEME,
   playerThemeOptions: DEFAULT_PLAYER_OPTIONS,
   showGreeting: true,
+  progressStyle: 'wavy',
 };
 
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean';
@@ -134,6 +139,7 @@ const validators: { [K in keyof Settings]: (value: unknown) => value is Settings
   playerTheme: isPlayerThemeId,
   playerThemeOptions: (v): v is PlayerThemeOptions => isObject(v),
   showGreeting: isBoolean,
+  progressStyle: (v): v is ProgressStyle => v === 'wavy' || v === 'straight',
 };
 
 type SettingsState = Settings & {

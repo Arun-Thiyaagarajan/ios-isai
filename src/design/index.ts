@@ -11,6 +11,7 @@ export { IsaiLogo, IsaiLogoDot, IsaiLogoStem, ISAI_GLYPH_ASPECT } from './compon
 export { ListRow } from './components/ListRow';
 export { Marquee } from './components/Marquee';
 export { SearchField } from './components/SearchField';
+export { Segmented } from './components/Segmented';
 export { SectionHeader } from './components/SectionHeader';
 export { SettingsGroup } from './components/SettingsGroup';
 export { Slider } from './components/Slider';

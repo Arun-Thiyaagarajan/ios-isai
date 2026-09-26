@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { Icon, Slider, Text, makeStyles, useTheme } from '@/design';
+import { Icon, Segmented, Slider, Text, makeStyles, useTheme } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { useCurrentItem } from '@/features/player/playerStore';
 import type { QueueItem } from '@/features/player/queue';
@@ -225,38 +225,6 @@ function OptionRow({ title, note, children }: { title: string; note?: string; ch
   );
 }
 
-function Segmented<T extends string>({
-  value,
-  choices,
-  onChange,
-}: {
-  value: T;
-  choices: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  const styles = useStyles();
-  return (
-    <View style={styles.segmented} accessibilityRole="radiogroup">
-      {choices.map((choice) => {
-        const active = choice.value === value;
-        return (
-          <Pressable
-            key={choice.value}
-            onPress={() => onChange(choice.value)}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: active }}
-            style={[styles.segment, active && styles.segmentActive]}
-          >
-            <Text variant="subhead" color={active ? 'onAccent' : 'primary'} style={styles.segmentLabel}>
-              {choice.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 const useStyles = makeStyles((t) => ({
   root: {
     backgroundColor: t.colors.bgElevated,
@@ -362,25 +330,5 @@ const useStyles = makeStyles((t) => ({
   },
   optionRow: {
     gap: t.spacing.sm,
-  },
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: t.colors.surfaceHigh,
-    borderRadius: t.radius.md,
-    padding: 3,
-    gap: 3,
-  },
-  segment: {
-    flex: 1,
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: t.radius.sm,
-  },
-  segmentActive: {
-    backgroundColor: t.colors.accent,
-  },
-  segmentLabel: {
-    fontWeight: '600',
   },
 }));
