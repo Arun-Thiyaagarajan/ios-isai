@@ -36,7 +36,7 @@ const covers: Record<string, { swatches: Swatches; isFallback: boolean }> = {
 const optionSets: PlayerThemeOptions[] = [
   DEFAULT_PLAYER_OPTIONS,
   { blurStrength: 0, overlayDarkness: 0, gradientStyle: 'radial', colorSource: 'artwork' },
-  { blurStrength: 1, overlayDarkness: 1, gradientStyle: 'linear', colorSource: 'brand' },
+  { blurStrength: 1, overlayDarkness: 1, gradientStyle: 'linear', colorSource: 'theme' },
 ];
 
 describe('player themes keep everything readable (4.5:1)', () => {
@@ -82,9 +82,22 @@ describe('theme specifics', () => {
     expect(tokens.progressFill).toBe(tokens.accent);
   });
 
-  it('the brand color source uses white/ink instead of an artwork accent', () => {
-    const { tokens } = resolvePlayerTheme('solid', { ...DEFAULT_PLAYER_OPTIONS, colorSource: 'brand' }, covers.colorful, 'dark');
-    expect(tokens.accent).toBe(tokens.foreground);
+  it.each(['#5B9BFF', '#2A62D4', '#EC6F82', '#83552A', '#15171B', '#F2F1EE'])(
+    'the theme accent %s stays readable on every player theme and cover',
+    (themeAccent) => {
+      for (const id of PLAYER_THEME_IDS) {
+        for (const cover of Object.values(covers)) {
+          const { tokens } = resolvePlayerTheme(id, DEFAULT_PLAYER_OPTIONS, { ...cover, themeAccent }, 'dark');
+          expect(contrastRatio(tokens.accent, tokens.background)).toBeGreaterThanOrEqual(MIN_CONTRAST);
+          expect(contrastRatio(tokens.controlForeground, tokens.accent)).toBeGreaterThanOrEqual(MIN_CONTRAST);
+        }
+      }
+    },
+  );
+
+  it('by default the accent comes from the app theme, not the artwork', () => {
+    const { tokens } = resolvePlayerTheme('mono', DEFAULT_PLAYER_OPTIONS, { ...covers.colorful, themeAccent: '#5B9BFF' }, 'dark');
+    expect(tokens.accent).toBe('#5B9BFF');
   });
 
   it('raises the blur overlay when the cover is bright', () => {
@@ -97,7 +110,7 @@ describe('theme specifics', () => {
 
   it('cleans stored options', () => {
     expect(sanitizeOptions(null)).toEqual(DEFAULT_PLAYER_OPTIONS);
-    expect(sanitizeOptions({ blurStrength: 7, gradientStyle: 'radial', colorSource: 'x' })).toEqual({
+    expect(sanitizeOptions({ blurStrength: 7, gradientStyle: 'radial', colorSource: 'brand' })).toEqual({
       ...DEFAULT_PLAYER_OPTIONS,
       blurStrength: 1,
       gradientStyle: 'radial',

@@ -11,6 +11,7 @@ import { contrastRatio } from '@/lib/color';
 
 import {
   INK,
+  MIN_CONTRAST,
   WHITE,
   blend,
   ensureContrast,
@@ -38,7 +39,7 @@ export const PLAYER_THEME_IDS = [
 export type PlayerThemeId = (typeof PLAYER_THEME_IDS)[number];
 
 export type GradientStyle = 'linear' | 'radial';
-export type ColorSource = 'artwork' | 'brand';
+export type ColorSource = 'theme' | 'artwork';
 
 export type PlayerThemeOptions = {
   /** 0…1: how strongly the artwork is blurred. */
@@ -46,7 +47,7 @@ export type PlayerThemeOptions = {
   /** 0…1: how dark the layer over the artwork is (a minimum: raised if text would be hard to read). */
   overlayDarkness: number;
   gradientStyle: GradientStyle;
-  /** Accent from the artwork, or the fixed brand accent (white/ink). */
+  /** Accent from the app theme (default), or picked from the artwork. */
   colorSource: ColorSource;
 };
 export type OptionKey = keyof PlayerThemeOptions;
@@ -56,7 +57,7 @@ export const DEFAULT_PLAYER_OPTIONS: PlayerThemeOptions = {
   blurStrength: 0.7,
   overlayDarkness: 0.35,
   gradientStyle: 'linear',
-  colorSource: 'artwork',
+  colorSource: 'theme',
 };
 
 export type PlayerTokens = {
@@ -189,33 +190,48 @@ function gradientStops(s: Swatches): string[] {
 
 export type ResolvedPlayerTheme = { tokens: PlayerTokens; background: BackgroundSpec };
 
-type PaletteInput = { swatches: Swatches; isFallback: boolean };
+type PaletteInput = {
+  swatches: Swatches;
+  isFallback: boolean;
+  /** The app theme's accent (used when the accent source is "Theme Accent"). */
+  themeAccent?: string;
+};
 
-function tokensFor(
-  background: string,
-  input: PaletteInput,
-  options: PlayerThemeOptions,
-  accentOnControls = false,
-): PlayerTokens {
+/**
+ * An accent that works both as a color on `bg` (progress bar, like button) and as the play
+ * button's fill (with a white or ink glyph on it): moved away from the background until both
+ * reach 4.5:1.
+ */
+function controlAccent(color: string, bg: string): string {
+  let accent = ensureContrast(color, bg);
+  const glyphContrast = (c: string) => Math.max(contrastRatio(WHITE, c), contrastRatio(INK, c));
+  const lighten = foregroundFor(bg) === WHITE;
+  let hsl = toHsl(accent);
+  for (let i = 0; i < 40 && glyphContrast(accent) < MIN_CONTRAST; i++) {
+    hsl = { ...hsl, l: Math.min(1, Math.max(0, hsl.l + (lighten ? 0.025 : -0.025))) };
+    accent = fromHsl(hsl);
+  }
+  return accent;
+}
+
+function tokensFor(background: string, input: PaletteInput, options: PlayerThemeOptions): PlayerTokens {
   const bg = readableBackground(background);
   const foreground = foregroundFor(bg);
-  const brandAccent = options.colorSource === 'brand' || input.isFallback;
-  const onControls = accentOnControls && !brandAccent;
-  let accent = brandAccent ? foreground : pickAccent(input.swatches, bg);
-  if (onControls) {
-    // The accent also fills the play button: keep it light enough for the ink glyph on top.
-    accent = ensureContrast(accent, INK);
-  }
-  const controlBackground = onControls ? accent : foreground;
+  // Without artwork colors there's nothing to pick from: the theme accent (or plain text color).
+  const fromArtwork = options.colorSource === 'artwork' && !input.isFallback;
+  const source = fromArtwork ? pickAccent(input.swatches, bg) : (input.themeAccent ?? foreground);
+  // The accent fills the play button and the progress bar, so it must read on the background and
+  // carry a readable glyph.
+  const accent = controlAccent(source, bg);
   return {
     background: bg,
     foreground,
     secondaryForeground: secondaryFor(foreground, bg),
     accent,
-    controlBackground,
-    controlForeground: foregroundFor(controlBackground) === WHITE ? WHITE : INK,
+    controlBackground: accent,
+    controlForeground: contrastRatio(WHITE, accent) >= contrastRatio(INK, accent) ? WHITE : INK,
     progressTrack: withAlpha(foreground, 0.24),
-    progressFill: onControls ? accent : foreground,
+    progressFill: accent,
     scheme: foreground === WHITE ? 'dark' : 'light',
   };
 }
@@ -293,7 +309,7 @@ export function resolvePlayerTheme(
     }
     case 'amoled': {
       return {
-        tokens: tokensFor('#000000', input, options, true),
+        tokens: tokensFor('#000000', input, options),
         background: { kind: 'solid', color: '#000000' },
       };
     }
@@ -328,6 +344,6 @@ export function sanitizeOptions(value: unknown): PlayerThemeOptions {
     blurStrength: unit(v.blurStrength, DEFAULT_PLAYER_OPTIONS.blurStrength),
     overlayDarkness: unit(v.overlayDarkness, DEFAULT_PLAYER_OPTIONS.overlayDarkness),
     gradientStyle: v.gradientStyle === 'radial' ? 'radial' : 'linear',
-    colorSource: v.colorSource === 'brand' ? 'brand' : 'artwork',
+    colorSource: v.colorSource === 'artwork' ? 'artwork' : 'theme',
   };
 }

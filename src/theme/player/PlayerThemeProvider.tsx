@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { ThemeScope, type Theme } from '@/design';
+import { ThemeScope, useTheme, type Theme } from '@/design';
 import type { QueueItem } from '@/features/player/queue';
 import { useSettings } from '@/features/settings/settingsStore';
 
@@ -27,6 +27,15 @@ export type PlayerThemeValue = {
 };
 
 const PlayerThemeContext = createContext<PlayerThemeValue | null>(null);
+/** The app theme's accent, captured before the player replaces the theme colors. */
+const AppAccentContext = createContext<string | null>(null);
+
+/** The app theme's accent, even inside a player (whose own scope replaces the theme colors). */
+function useAppAccent(): string {
+  const captured = useContext(AppAccentContext);
+  const theme = useTheme();
+  return captured ?? theme.colors.accent;
+}
 
 /** Resolves any theme for the given colors (the picker uses it for its live previews). */
 export function useResolvedPlayerTheme(
@@ -35,10 +44,11 @@ export function useResolvedPlayerTheme(
   palette: PlayerPalette,
 ): PlayerThemeValue {
   const systemScheme = useColorScheme() === 'light' ? 'light' : 'dark';
+  const themeAccent = useAppAccent();
   return useMemo(() => {
-    const resolved = resolvePlayerTheme(id, options, palette, systemScheme);
+    const resolved = resolvePlayerTheme(id, options, { ...palette, themeAccent }, systemScheme);
     return { definition: PLAYER_THEMES[id], options, palette, ...resolved };
-  }, [id, options, palette, systemScheme]);
+  }, [id, options, palette, systemScheme, themeAccent]);
 }
 
 /** App colors replaced by player tokens, so Text, icons and buttons inside the player use them. */
@@ -81,15 +91,18 @@ export function PlayerThemeProvider({
   const id = themeId ?? savedId;
   const storedOptions = useSettings((s) => s.playerThemeOptions);
   const options = useMemo(() => sanitizeOptions(storedOptions), [storedOptions]);
+  const appAccent = useAppAccent();
   const value = useResolvedPlayerTheme(id, options, palette);
   const colors = useMemo(() => scopeColors(value.tokens), [value.tokens]);
 
   return (
-    <PlayerThemeContext.Provider value={value}>
-      <ThemeScope themeName={value.tokens.scheme === 'dark' ? 'pureBlack' : 'pearl'} colors={colors}>
-        {children}
-      </ThemeScope>
-    </PlayerThemeContext.Provider>
+    <AppAccentContext.Provider value={appAccent}>
+      <PlayerThemeContext.Provider value={value}>
+        <ThemeScope themeName={value.tokens.scheme === 'dark' ? 'isaiDark' : 'isaiLight'} colors={colors}>
+          {children}
+        </ThemeScope>
+      </PlayerThemeContext.Provider>
+    </AppAccentContext.Provider>
   );
 }
 

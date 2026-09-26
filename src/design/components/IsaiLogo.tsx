@@ -1,5 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
 
+import { brand } from '../tokens';
+
 /** Glyph bounds from the logo source (viewBox "73 37 54 126"): width / height. */
 export const ISAI_GLYPH_ASPECT = 54 / 126;
 
@@ -34,7 +36,7 @@ export function IsaiLogoStem({ width, color }: PartProps) {
  * Isai logo glyph: a lowercase "i" whose dot is a play button.
  * `width` sets the size; defaults to the ink color from the brand kit.
  */
-export function IsaiLogo({ width = 48, color = '#15171B' }: Partial<PartProps>) {
+export function IsaiLogo({ width = 48, color = brand.ink }: Partial<PartProps>) {
   return (
     <Svg
       width={width}

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import type { TrackItem } from '@/db/repos/browse';
@@ -24,6 +24,11 @@ type Props = {
   onPress?: () => void;
   /** Opens the song's actions (Play Next, Add to Playlist…). Also triggered by a long press. */
   onMore?: () => void;
+  /** Shown instead of the "…" button while reordering (a drag handle). */
+  reorderHandle?: ReactNode;
+  /** Screen-reader actions for moving the row while reordering. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 };
 
 export const TrackRow = memo(function TrackRow({
@@ -35,6 +40,9 @@ export const TrackRow = memo(function TrackRow({
   active,
   onPress,
   onMore,
+  reorderHandle,
+  onMoveUp,
+  onMoveDown,
 }: Props) {
   const theme = useTheme();
   const styles = useStyles();
@@ -52,10 +60,18 @@ export const TrackRow = memo(function TrackRow({
       title={track.title}
       subtitle={subtitle}
       onPress={onPress}
-      onLongPress={onMore}
+      onLongPress={reorderHandle ? undefined : onMore}
       active={active ?? isCurrent}
-      accessibilityActions={onMore ? [{ name: 'longpress', label: 'More actions' }] : undefined}
-      onAccessibilityAction={onMore ? () => onMore() : undefined}
+      accessibilityActions={[
+        ...(onMore && !reorderHandle ? [{ name: 'longpress', label: 'More actions' }] : []),
+        ...(onMoveUp ? [{ name: 'moveUp', label: 'Move up' }] : []),
+        ...(onMoveDown ? [{ name: 'moveDown', label: 'Move down' }] : []),
+      ]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'moveUp') onMoveUp?.();
+        else if (e.nativeEvent.actionName === 'moveDown') onMoveDown?.();
+        else onMore?.();
+      }}
       accessibilityLabel={`${track.title}, ${track.artist}, ${formatDuration(track.durationMs)}`}
       leading={
         leading === 'artwork' ? (
@@ -78,9 +94,10 @@ export const TrackRow = memo(function TrackRow({
           <Text variant="footnote" color="secondary" tabular>
             {formatDuration(track.durationMs)}
           </Text>
-          {onMore ? (
-            <IconButton icon="more" label={`More actions for ${track.title}`} onPress={onMore} size={36} iconSize={theme.sizes.icon.md} />
-          ) : null}
+          {reorderHandle ??
+            (onMore ? (
+              <IconButton icon="more" label={`More actions for ${track.title}`} onPress={onMore} size={36} iconSize={theme.sizes.icon.md} />
+            ) : null)}
         </View>
       }
     />

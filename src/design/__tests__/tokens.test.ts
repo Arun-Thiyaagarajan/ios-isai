@@ -30,13 +30,34 @@ describe.each(Object.values(themes).map((t) => [t.label, t.colors] as const))('%
 });
 
 describe('resolveThemeName', () => {
-  it('uses the chosen theme when not following the system', () => {
-    expect(resolveThemeName('aurora', false, 'light')).toBe('aurora');
+  it('uses the chosen light or dark theme in Light and Dark mode', () => {
+    expect(resolveThemeName('light', 'sky', 'graphite', 'dark')).toBe('sky');
+    expect(resolveThemeName('dark', 'sky', 'graphite', 'light')).toBe('graphite');
   });
 
-  it('follows the system: Pearl by day, the chosen dark theme at night', () => {
-    expect(resolveThemeName('aurora', true, 'light')).toBe('pearl');
-    expect(resolveThemeName('aurora', true, 'dark')).toBe('aurora');
-    expect(resolveThemeName('pearl', true, 'dark')).toBe('midnight');
+  it('follows the phone in System mode', () => {
+    expect(resolveThemeName('system', 'linen', 'deepBlue', 'light')).toBe('linen');
+    expect(resolveThemeName('system', 'linen', 'deepBlue', 'dark')).toBe('deepBlue');
+    // No answer from the phone yet: light.
+    expect(resolveThemeName('system', 'linen', 'deepBlue', null)).toBe('linen');
+  });
+});
+
+describe('theme set', () => {
+  it('has three light and three dark themes, none using pure black or pure white backgrounds', () => {
+    const all = Object.values(themes);
+    expect(all.filter((t) => t.scheme === 'light')).toHaveLength(3);
+    expect(all.filter((t) => t.scheme === 'dark')).toHaveLength(3);
+    for (const t of all) {
+      expect(['#000000', '#FFFFFF']).not.toContain(t.colors.bg.toUpperCase());
+    }
+  });
+
+  it('keeps the accent visible on every surface (3:1 for UI components)', () => {
+    for (const t of Object.values(themes)) {
+      for (const surface of ['bg', 'bgElevated', 'surface', 'surfaceHigh', 'card', 'navBg'] as const) {
+        expect(contrastRatio(t.colors.accent, t.colors[surface])).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 });

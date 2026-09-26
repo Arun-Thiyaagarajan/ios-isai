@@ -1,20 +1,24 @@
-import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Alert, View } from 'react-native';
+import ReorderableList, { reorderItems, type ReorderableListReorderEvent } from 'react-native-reorderable-list';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
-import { getPlaylistSummary, listPlaylistTracks } from '@/db/repos/browse';
-import { deletePlaylist } from '@/db/repos/playlists';
+import { getPlaylistSummary, listPlaylistTracks, type PlaylistTrack } from '@/db/repos/browse';
+import { deletePlaylist, movePlaylistEntry } from '@/db/repos/playlists';
 import { EmptyScreen, makeStyles, Text } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
+import { DragHandle } from '@/features/library/components/DragHandle';
 import { TrackRow } from '@/features/library/components/TrackRow';
 import { playSongs } from '@/features/player/playerService';
 import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
 import { openSongActions } from '@/features/player/songActions';
 import { headerActions } from '@/features/shell/headerActions';
 import { formatCount } from '@/lib/format';
+import { selectionHaptic, tapHaptic } from '@/lib/haptics';
 
 function minutes(ms: number) {
   const m = Math.round(ms / 60_000);
@@ -25,6 +29,7 @@ export function PlaylistScreen() {
   const styles = useStyles();
   const client = useQueryClient();
   const playlistId = Number(useLocalSearchParams<{ id: string }>().id);
+  const [reordering, setReordering] = useState(false);
 
   const summary = useQuery({
     queryKey: [...queryKeys.playlists.entries(playlistId), 'summary'],
@@ -43,9 +48,21 @@ export function PlaylistScreen() {
   const playable = list.filter((t) => !t.missing && t.isPlayable);
   const playableIds = playable.map((t) => t.id);
 
+  /** Moves a song: shown at once, then saved (positions are fractional, so one row is updated). */
+  const move = ({ from, to }: ReorderableListReorderEvent) => {
+    const entry = list[from];
+    if (!entry || from === to) return;
+    client.setQueryData<PlaylistTrack[]>(queryKeys.playlists.entries(playlistId), (old) =>
+      old ? reorderItems(old, from, to) : old,
+    );
+    movePlaylistEntry(db, playlistId, entry.entryId, to);
+    client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+  };
+
   const showMenu = () => {
     const name = summary.data?.name ?? 'Playlist';
     Alert.alert(name, undefined, [
+      ...(list.length > 1 ? [{ text: 'Reorder Songs', onPress: () => setReordering(true) }] : []),
       { text: 'Rename', onPress: () => router.push({ pathname: '/playlist-edit', params: { playlistId: String(playlistId) } }) },
       {
         text: 'Delete Playlist',
@@ -73,11 +90,25 @@ export function PlaylistScreen() {
       <Stack.Screen
         options={{
           title: summary.data?.name ?? '',
-          ...headerActions([{ icon: 'more', label: 'Playlist options', onPress: showMenu }]),
+          ...headerActions(
+            reordering
+              ? [{ icon: 'check', label: 'Done', onPress: () => setReordering(false) }]
+              : [{ icon: 'more', label: 'Playlist options', onPress: showMenu }],
+          ),
         }}
       />
-      <FlashList
+      <ReorderableList
         data={list}
+        dragEnabled={reordering}
+        onReorder={move}
+        onDragStart={() => {
+          'worklet';
+          scheduleOnRN(tapHaptic);
+        }}
+        onDragEnd={() => {
+          'worklet';
+          scheduleOnRN(selectionHaptic);
+        }}
         keyExtractor={(track) => String(track.entryId)}
         ListHeaderComponent={
           summary.data ? (
@@ -105,9 +136,12 @@ export function PlaylistScreen() {
             </Text>
           ) : null
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <TrackRow
             track={item}
+            reorderHandle={reordering ? <DragHandle label={`Reorder ${item.title}`} /> : undefined}
+            onMoveUp={reordering && index > 0 ? () => move({ from: index, to: index - 1 }) : undefined}
+            onMoveDown={reordering && index < list.length - 1 ? () => move({ from: index, to: index + 1 }) : undefined}
             note={item.missing ? 'File missing — it will return if the file comes back' : undefined}
             onPress={
               item.missing || !item.isPlayable

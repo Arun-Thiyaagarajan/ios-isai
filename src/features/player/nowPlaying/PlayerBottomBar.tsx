@@ -3,14 +3,21 @@ import { router } from 'expo-router';
 import { Platform, View } from 'react-native';
 
 import { IconButton, makeStyles, useTheme } from '@/design';
+import { useSettings } from '@/features/settings/settingsStore';
 
 /** Lyrics · output device · queue. */
 export function PlayerBottomBar() {
   const styles = useStyles();
+  const showLyrics = useSettings((s) => s.showLyricsButton);
 
   return (
     <View style={styles.row}>
-      <IconButton icon="lyrics" label="Lyrics" onPress={() => router.push('/lyrics')} />
+      {/* An empty slot keeps Output centered when Lyrics is turned off. */}
+      {showLyrics ? (
+        <IconButton icon="lyrics" label="Lyrics" onPress={() => router.push('/lyrics')} />
+      ) : (
+        <View style={styles.output} />
+      )}
       <OutputButton />
       <IconButton icon="queue" label="Queue" onPress={() => router.push('/queue')} />
     </View>

@@ -52,7 +52,7 @@ const config: ExpoConfig = {
         resizeMode: 'contain',
         dark: {
           image: './assets/splash-glyph-light.png',
-          backgroundColor: '#0B1020',
+          backgroundColor: '#15171B',
         },
       },
     ],

@@ -42,12 +42,12 @@ describe('SplashIntro', () => {
   });
 
   it('plays only once per launch', async () => {
-    const { toJSON } = await render(
+    await render(
       <ThemeProvider>
         <SplashIntro />
       </ThemeProvider>,
     );
-    expect(toJSON()).toBeNull();
+    expect(screen.queryByTestId('splash-intro', { includeHiddenElements: true })).toBeNull();
   });
 
   it('draws the logo with an accessible label', async () => {

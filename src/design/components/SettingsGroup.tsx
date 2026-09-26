@@ -2,6 +2,7 @@ import { Children, Fragment, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { makeStyles, useTheme } from '../theme';
+import { ICON_TILE_SIZE } from './IconTile';
 import { Text } from './Text';
 
 type Props = {
@@ -23,8 +24,8 @@ export function SettingsGroup({ title, footer, withIcons = true, children }: Pro
   const theme = useTheme();
   const styles = useStyles();
   const rows = Children.toArray(children).filter(Boolean);
-  // Row padding + icon + gap, so dividers line up with the titles.
-  const dividerInset = withIcons ? theme.gutter + theme.sizes.icon.lg + theme.spacing.md : theme.gutter;
+  // Row padding + icon tile + gap, so dividers line up with the titles.
+  const dividerInset = withIcons ? theme.gutter + ICON_TILE_SIZE + theme.spacing.md : theme.gutter;
 
   return (
     <View style={styles.section}>

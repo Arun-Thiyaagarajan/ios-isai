@@ -2,7 +2,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
 import { Animated, Easing, StyleSheet, View, useColorScheme } from 'react-native';
 
-import { IsaiLogoDot, IsaiLogoStem, ISAI_GLYPH_ASPECT, useReducedMotion } from '@/design';
+import { brand, IsaiLogoDot, IsaiLogoStem, ISAI_GLYPH_ASPECT, useReducedMotion } from '@/design';
 
 /**
  * Must match the native splash in app.config.ts (image width and background colors), so the
@@ -11,8 +11,9 @@ import { IsaiLogoDot, IsaiLogoStem, ISAI_GLYPH_ASPECT, useReducedMotion } from '
 const GLYPH_WIDTH = 72;
 const GLYPH_HEIGHT = GLYPH_WIDTH / ISAI_GLYPH_ASPECT;
 const NATIVE_SPLASH = {
-  light: { background: '#FFFFFF', glyph: '#15171B' },
-  dark: { background: '#0B1020', glyph: '#FFFFFF' },
+  // Must stay identical to the native splash colors in app.config.ts (native code reads those).
+  light: { background: '#FFFFFF', glyph: brand.ink },
+  dark: { background: brand.ink, glyph: '#FFFFFF' }, // glyph: the white splash-glyph-light.png
 };
 
 /** Center of the play-button dot within the glyph, as fractions (from the logo's viewBox). */

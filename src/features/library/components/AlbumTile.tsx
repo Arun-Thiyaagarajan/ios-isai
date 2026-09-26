@@ -28,6 +28,7 @@ export const AlbumTile = memo(function AlbumTile({ album, width, onPress }: Prop
         artworkKey={album.artworkKey}
         size={width}
         placeholderColor={album.colorPrimary}
+        placeholderTitle={album.title}
       />
       <Text variant="subhead" numberOfLines={1} style={styles.title}>
         {album.title}

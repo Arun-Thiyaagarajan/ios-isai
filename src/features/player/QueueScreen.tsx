@@ -1,11 +1,15 @@
-import { FlashList } from '@shopify/flash-list';
-import { memo } from 'react';
-import { View } from 'react-native';
+import { memo, type ReactNode } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReorderableList, { type ReorderableListReorderEvent } from 'react-native-reorderable-list';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { Icon, IconButton, ListRow, Text, makeStyles, useTheme } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
+import { DragHandle } from '@/features/library/components/DragHandle';
+import { selectionHaptic, tapHaptic } from '@/lib/haptics';
 
-import { clearUpNext, removeFromQueue, skipTo, toggleShuffle } from './playerService';
+import { clearUpNext, moveInQueue, removeFromQueue, skipTo, toggleShuffle } from './playerService';
 import { useIsPlaying, usePlayerStore } from './playerStore';
 import type { QueueItem } from './queue';
 
@@ -13,12 +17,17 @@ const QueueRow = memo(function QueueRow({
   item,
   position,
   current,
+  last,
 }: {
   item: QueueItem;
   position: number;
   current?: boolean;
+  /** Position of the last song in the queue (for the "Move down" action). */
+  last: number;
 }) {
   const theme = useTheme();
+  const styles = useStyles();
+  const firstUpNext = usePlayerStore((s) => s.queue.index + 1);
   return (
     <ListRow
       title={item.title}
@@ -26,24 +35,54 @@ const QueueRow = memo(function QueueRow({
       active={current}
       onPress={current ? undefined : () => skipTo(position)}
       accessibilityHint={current ? undefined : 'Plays this song now'}
+      accessibilityActions={
+        current
+          ? undefined
+          : [
+              ...(position > firstUpNext ? [{ name: 'moveUp', label: 'Move up' }] : []),
+              ...(position < last ? [{ name: 'moveDown', label: 'Move down' }] : []),
+            ]
+      }
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'moveUp') moveInQueue(position, position - 1);
+        if (e.nativeEvent.actionName === 'moveDown') moveInQueue(position, position + 1);
+      }}
       leading={
         <AlbumArtwork albumId={item.albumId} artworkKey={item.artworkUri} size={theme.sizes.artworkRow} placeholderIcon="song" />
       }
       trailing={
         current ? null : (
-          <IconButton
-            icon="remove"
-            label={`Remove ${item.title} from the queue`}
-            onPress={() => removeFromQueue(position)}
-            iconSize={theme.sizes.icon.md}
-          />
+          <View style={styles.trailing}>
+            <IconButton
+              icon="remove"
+              label={`Remove ${item.title} from the queue`}
+              onPress={() => removeFromQueue(position)}
+              size={36}
+              iconSize={theme.sizes.icon.md}
+            />
+            <DragHandle label={`Reorder ${item.title}`} />
+          </View>
         )
       }
     />
   );
 });
 
-/** What's playing and what comes next. Tap a song to jump to it; remove songs you don't want. */
+/**
+ * Android sheets are separate windows, so gestures (dragging rows) need their own root there.
+ * On iOS the list must stay the sheet's root: a flex wrapper collapses inside a form sheet.
+ */
+function SheetRoot({ children }: { children: ReactNode }) {
+  if (Platform.OS === 'android') {
+    return <GestureHandlerRootView style={rootStyles.fill}>{children}</GestureHandlerRootView>;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * What's playing and what comes next. Tap a song to jump to it, drag ≡ to reorder,
+ * remove songs you don't want.
+ */
 export function QueueScreen() {
   const theme = useTheme();
   const styles = useStyles();
@@ -51,6 +90,7 @@ export function QueueScreen() {
   const isPlaying = useIsPlaying();
   const current = queue.items[queue.index];
   const upNext = queue.items.slice(queue.index + 1);
+  const last = queue.items.length - 1;
 
   if (!current) {
     return (
@@ -65,51 +105,73 @@ export function QueueScreen() {
     );
   }
 
+  const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
+    // Rows are "up next" only; the queue positions start right after the current song.
+    moveInQueue(queue.index + 1 + from, queue.index + 1 + to);
+  };
+
   return (
-    <FlashList
-      data={upNext}
-      keyExtractor={(item) => item.key}
-      renderItem={({ item, index }) => <QueueRow item={item} position={queue.index + 1 + index} />}
-      ListHeaderComponent={
-        <View>
-          <Text variant="title2" accessibilityRole="header" style={styles.heading}>
-            {isPlaying ? 'Now Playing' : 'Paused'}
-          </Text>
-          <QueueRow item={current} position={queue.index} current />
-          <View style={styles.upNextHeader}>
-            <Text variant="headline" accessibilityRole="header" style={styles.flex}>
-              Up Next
+    <SheetRoot>
+      <ReorderableList
+        data={upNext}
+        keyExtractor={(item) => item.key}
+        onReorder={onReorder}
+        onDragStart={() => {
+          'worklet';
+          scheduleOnRN(tapHaptic);
+        }}
+        onDragEnd={() => {
+          'worklet';
+          scheduleOnRN(selectionHaptic);
+        }}
+        renderItem={({ item, index }) => <QueueRow item={item} position={queue.index + 1 + index} last={last} />}
+        ListHeaderComponent={
+          <View>
+            <Text variant="title2" accessibilityRole="header" style={styles.heading}>
+              {isPlaying ? 'Now Playing' : 'Paused'}
             </Text>
-            <IconButton
-              icon="shuffle"
-              label={queue.shuffle ? 'Shuffle on' : 'Shuffle off'}
-              selected={queue.shuffle}
-              onPress={toggleShuffle}
-              iconSize={theme.sizes.icon.md}
-            />
-            <IconButton
-              icon="delete"
-              label="Clear Up Next"
-              onPress={clearUpNext}
-              disabled={upNext.length === 0}
-              iconSize={theme.sizes.icon.md}
-            />
+            <QueueRow item={current} position={queue.index} last={last} current />
+            <View style={styles.upNextHeader}>
+              <Text variant="headline" accessibilityRole="header" style={styles.flex}>
+                Up Next
+              </Text>
+              <IconButton
+                icon="shuffle"
+                label={queue.shuffle ? 'Shuffle on' : 'Shuffle off'}
+                selected={queue.shuffle}
+                onPress={toggleShuffle}
+                iconSize={theme.sizes.icon.md}
+              />
+              <IconButton
+                icon="delete"
+                label="Clear Up Next"
+                onPress={clearUpNext}
+                disabled={upNext.length === 0}
+                iconSize={theme.sizes.icon.md}
+              />
+            </View>
           </View>
-        </View>
-      }
-      ListEmptyComponent={
-        <View style={styles.upNextEmpty}>
-          <Icon name="queue" color={theme.colors.textTertiary} />
-          <Text variant="subhead" color="secondary" align="center">
-            Nothing up next. Use Play Next or Add to Queue from any song’s menu.
-          </Text>
-        </View>
-      }
-      contentContainerStyle={styles.bottom}
-      style={{ backgroundColor: theme.colors.bgElevated }}
-    />
+        }
+        ListEmptyComponent={
+          <View style={styles.upNextEmpty}>
+            <Icon name="queue" color={theme.colors.textTertiary} />
+            <Text variant="subhead" color="secondary" align="center">
+              Nothing up next. Use Play Next or Add to Queue from any song’s menu.
+            </Text>
+          </View>
+        }
+        contentContainerStyle={styles.bottom}
+        style={{ backgroundColor: theme.colors.bgElevated }}
+      />
+    </SheetRoot>
   );
 }
+
+const rootStyles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
+});
 
 const useStyles = makeStyles((t) => ({
   heading: {
@@ -126,6 +188,11 @@ const useStyles = makeStyles((t) => ({
   },
   flex: {
     flex: 1,
+  },
+  trailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: -t.spacing.sm,
   },
   upNextEmpty: {
     alignItems: 'center',

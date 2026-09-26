@@ -44,6 +44,12 @@ export function Toggle({ value, onValueChange, disabled, accessibilityLabel, dec
     inputRange: [0, 1],
     outputRange: [theme.colors.surfaceHigh, theme.colors.accent],
   });
+  // Off: a light knob (off-white in dark themes); on: the color made for sitting on the accent,
+  // so the knob stays visible even when the accent itself is light (Isai Dark).
+  const knobColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.scheme === 'dark' ? theme.colors.textPrimary : theme.colors.bgElevated, theme.colors.onAccent],
+  });
   const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, TRAVEL] });
 
   return (
@@ -60,7 +66,7 @@ export function Toggle({ value, onValueChange, disabled, accessibilityLabel, dec
       style={disabled ? styles.disabled : undefined}
     >
       <Animated.View style={[styles.track, { backgroundColor: trackColor }]}>
-        <Animated.View style={[styles.knob, { transform: [{ translateX }] }]} />
+        <Animated.View style={[styles.knob, { backgroundColor: knobColor, transform: [{ translateX }] }]} />
       </Animated.View>
     </Pressable>
   );
@@ -78,8 +84,7 @@ const useStyles = makeStyles((t) => ({
     width: KNOB_SIZE,
     height: KNOB_SIZE,
     borderRadius: KNOB_SIZE / 2,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
+    shadowColor: t.colors.shadow,
     shadowOpacity: 0.2,
     shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },

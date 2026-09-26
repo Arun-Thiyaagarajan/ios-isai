@@ -11,8 +11,9 @@ import { Icon, ListRow, Text, makeStyles, useTheme, type IconName } from '@/desi
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 
 import { addToQueue, playNext } from './playerService';
+import { describeSleepTimer, useSleepTimer } from './sleepTimer';
 
-type Action = { icon: IconName; title: string; onPress: () => void; destructive?: boolean };
+type Action = { icon: IconName; title: string; subtitle?: string; onPress: () => void; destructive?: boolean };
 
 /** Closes every sheet and modal, then opens a library page. */
 function goTo(href: string) {
@@ -29,6 +30,7 @@ export function SongActionsSheet() {
   const songId = Number(params.songId);
 
   const song = useQuery({ queryKey: ['song', songId], queryFn: () => getSongInfo(db, songId) ?? null });
+  const sleep = describeSleepTimer(useSleepTimer());
   const info = song.data;
 
   if (!info) {
@@ -43,6 +45,12 @@ export function SongActionsSheet() {
       icon: 'appearance',
       title: 'Player Theme',
       onPress: () => router.replace('/player-theme'),
+    });
+    actions.push({
+      icon: 'sleepTimer',
+      title: 'Sleep Timer',
+      subtitle: sleep ?? undefined,
+      onPress: () => router.replace('/sleep-timer'),
     });
   }
   actions.push(
@@ -120,6 +128,7 @@ export function SongActionsSheet() {
         <ListRow
           key={action.title}
           title={action.title}
+          subtitle={action.subtitle}
           onPress={action.onPress}
           leading={
             <Icon name={action.icon} color={action.destructive ? theme.colors.danger : theme.colors.accentText} />

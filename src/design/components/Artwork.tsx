@@ -1,9 +1,11 @@
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
 import type { IconName } from '../icons';
 import { useTheme } from '../theme';
 import { Icon } from './Icon';
+import { Text } from './Text';
 
 export type ArtworkProps = {
   /** Local file URI of a cached thumbnail; null shows the placeholder. */
@@ -20,6 +22,8 @@ export type ArtworkProps = {
   onError?: () => void;
   /** Corner radius; by default it follows the size. */
   radius?: number;
+  /** Without artwork, show this letter on a theme-tinted gradient instead of the icon. */
+  placeholderLetter?: string;
 };
 
 export function Artwork({
@@ -31,6 +35,7 @@ export function Artwork({
   recyclingKey,
   onError,
   radius,
+  placeholderLetter,
 }: ArtworkProps) {
   const theme = useTheme();
   const borderRadius =
@@ -61,6 +66,29 @@ export function Artwork({
           cachePolicy="memory-disk"
           onError={onError}
         />
+      ) : placeholderLetter ? (
+        <>
+          <LinearGradient
+            colors={[theme.colors.surfaceHigh, theme.colors.surface]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Text
+            maxFontSizeMultiplier={1}
+            style={{
+              color: theme.colors.textSecondary,
+              fontSize: Math.round(size * 0.38),
+              fontWeight: '600',
+              textAlign: 'center',
+              // Centers the glyph itself on Android (no extra font padding above it).
+              includeFontPadding: false,
+              textAlignVertical: 'center',
+            }}
+          >
+            {placeholderLetter}
+          </Text>
+        </>
       ) : (
         <Icon name={placeholderIcon} size={Math.round(size * 0.4)} color={theme.colors.textTertiary} />
       )}

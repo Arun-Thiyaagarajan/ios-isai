@@ -3,7 +3,9 @@ export { Artwork } from './components/Artwork';
 export { Button } from './components/Button';
 export { EmptyScreen } from './components/EmptyScreen';
 export { EmptyState } from './components/EmptyState';
+export { FastScroller } from './components/FastScroller';
 export { Icon } from './components/Icon';
+export { IconTile } from './components/IconTile';
 export { IconButton } from './components/IconButton';
 export { IsaiLogo, IsaiLogoDot, IsaiLogoStem, ISAI_GLYPH_ASPECT } from './components/IsaiLogo';
 export { ListRow } from './components/ListRow';
@@ -19,6 +21,15 @@ export { Text } from './components/Text';
 export { TextField } from './components/TextField';
 export { Toggle } from './components/Toggle';
 export type { IconName } from './icons';
-export { makeStyles, resolveThemeName, ThemeProvider, ThemeScope, useTheme } from './theme';
+export { makeStyles, resolveThemeName, ThemeProvider, ThemeScope, useTheme, type ThemeMode } from './theme';
 export type { Theme } from './theme';
-export { themeOrder, themes, type ThemeName } from './tokens';
+export {
+  brand,
+  darkThemeOrder,
+  lightThemeOrder,
+  themeOrder,
+  themes,
+  type DarkThemeName,
+  type LightThemeName,
+  type ThemeName,
+} from './tokens';

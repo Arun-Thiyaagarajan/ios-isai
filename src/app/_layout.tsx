@@ -26,13 +26,52 @@ function RootStack() {
     <>
       <Stack screenOptions={stackScreenOptions}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         <Stack.Screen name="music-folders" options={{ title: 'Music Folders' }} />
 
         {/* Now Playing slides up over everything; swipe down to close. */}
         <Stack.Screen name="player" options={{ presentation: 'modal', headerShown: false }} />
 
         {/* Bottom sheets. */}
+        <Stack.Screen
+          name="profile"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.92],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+          }}
+        />
+        <Stack.Screen
+          name="sleep-timer"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.7, 1],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+          }}
+        />
+        <Stack.Screen
+          name="view-options"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.75, 1],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+          }}
+        />
+        <Stack.Screen
+          name="appearance"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.92],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+          }}
+        />
         <Stack.Screen
           name="queue"
           options={{
@@ -87,8 +126,9 @@ function RootStack() {
 function App() {
   // Load saved settings once, before the first themed frame.
   useState(() => useSettings.getState().hydrate(db));
-  const themeName = useSettings((s) => s.theme);
-  const matchSystem = useSettings((s) => s.matchSystem);
+  const themeMode = useSettings((s) => s.themeMode);
+  const lightTheme = useSettings((s) => s.lightTheme);
+  const darkTheme = useSettings((s) => s.darkTheme);
 
   // Reconnect to the player with the last queue (paused), and start the one place that decides
   // when the library is scanned automatically.
@@ -102,7 +142,7 @@ function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider themeName={themeName} matchSystem={matchSystem}>
+        <ThemeProvider mode={themeMode} lightTheme={lightTheme} darkTheme={darkTheme}>
           <RootStack />
           {/* Launch animation, on top of the first screen; removes itself when done. */}
           <SplashIntro />

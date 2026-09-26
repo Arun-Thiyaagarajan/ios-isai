@@ -1,7 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { StyleSheet, useColorScheme, useWindowDimensions, type ColorSchemeName } from 'react-native';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Animated, StyleSheet, View, useColorScheme, useWindowDimensions, type ColorSchemeName } from 'react-native';
+
+import { useReducedMotion } from './a11y';
 
 import {
   gutter,
@@ -13,6 +15,8 @@ import {
   themes,
   typography,
   type ColorPalette,
+  type DarkThemeName,
+  type LightThemeName,
   type ThemeName,
 } from './tokens';
 
@@ -32,36 +36,79 @@ export type Theme = {
 
 const ThemeContext = createContext<Theme | null>(null);
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 /**
- * Which theme to show. With `matchSystem`, the phone's light mode shows Pearl and dark mode shows
- * the chosen theme (or Midnight when Pearl is the choice).
+ * Which theme to show: the chosen light theme, the chosen dark theme, or (System) whichever
+ * matches the phone's light/dark setting.
  */
 export function resolveThemeName(
-  chosen: ThemeName,
-  matchSystem: boolean,
+  mode: ThemeMode,
+  lightTheme: LightThemeName,
+  darkTheme: DarkThemeName,
   systemScheme: ColorSchemeName | null | undefined,
 ): ThemeName {
-  if (!matchSystem) {
-    return chosen;
+  if (mode === 'light') {
+    return lightTheme;
   }
-  if (systemScheme === 'light') {
-    return 'pearl';
+  if (mode === 'dark') {
+    return darkTheme;
   }
-  return themes[chosen].scheme === 'dark' ? chosen : 'midnight';
+  return systemScheme === 'dark' ? darkTheme : lightTheme;
 }
 
 type Props = {
   children: ReactNode;
-  /** The user's choice; stored by the settings feature, not here. */
-  themeName?: ThemeName;
-  matchSystem?: boolean;
+  /** The user's choices; stored by the settings feature, not here. */
+  mode?: ThemeMode;
+  lightTheme?: LightThemeName;
+  darkTheme?: DarkThemeName;
 };
 
-export function ThemeProvider({ children, themeName = 'midnight', matchSystem = false }: Props) {
+/** How long the old theme's background takes to fade away after switching themes. */
+const CROSSFADE_MS = 260;
+
+/**
+ * Smooths theme switches: the previous background is laid over the app and fades out, so the
+ * change reads as a short crossfade instead of a hard cut. Skipped with Reduce Motion.
+ */
+function ThemeCrossfade({ name, background }: { name: ThemeName; background: string }) {
+  const reducedMotion = useReducedMotion();
+  const [current, setCurrent] = useState({ name, background });
+  const [fadingFrom, setFadingFrom] = useState<string | null>(null);
+  const [opacity] = useState(() => new Animated.Value(0));
+
+  if (current.name !== name) {
+    setFadingFrom(reducedMotion ? null : current.background);
+    setCurrent({ name, background });
+  }
+
+  useEffect(() => {
+    if (!fadingFrom) {
+      return;
+    }
+    opacity.setValue(1);
+    const animation = Animated.timing(opacity, { toValue: 0, duration: CROSSFADE_MS, useNativeDriver: true });
+    animation.start(() => setFadingFrom(null));
+    return () => animation.stop();
+  }, [fadingFrom, opacity]);
+
+  if (!fadingFrom) {
+    return null;
+  }
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { backgroundColor: fadingFrom, opacity }]}
+    />
+  );
+}
+
+export function ThemeProvider({ children, mode = 'system', lightTheme = 'isaiLight', darkTheme = 'isaiDark' }: Props) {
   const systemScheme = useColorScheme();
   const { width } = useWindowDimensions();
 
-  const definition = themes[resolveThemeName(themeName, matchSystem, systemScheme)];
+  const definition = themes[resolveThemeName(mode, lightTheme, darkTheme, systemScheme)];
   const scheme = definition.scheme;
   const screenGutter = width >= gutter.wideFromWidth ? gutter.wide : gutter.default;
 
@@ -81,7 +128,8 @@ export function ThemeProvider({ children, themeName = 'midnight', matchSystem = 
     [definition, scheme, screenGutter],
   );
 
-  // Root view background shows during screen transitions and keyboard animations.
+  // Root view background (shows during transitions and keyboard animations, and behind Android's
+  // edge-to-edge navigation bar).
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(theme.colors.bg);
   }, [theme.colors.bg]);
@@ -103,10 +151,21 @@ export function ThemeProvider({ children, themeName = 'midnight', matchSystem = 
 
   return (
     <ThemeContext.Provider value={theme}>
-      <NavigationThemeProvider value={navigationTheme}>{children}</NavigationThemeProvider>
+      <NavigationThemeProvider value={navigationTheme}>
+        <View style={styles.fill}>
+          {children}
+          <ThemeCrossfade name={definition.name} background={definition.colors.bg} />
+        </View>
+      </NavigationThemeProvider>
     </ThemeContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
+});
 
 /**
  * Shows part of the screen in a fixed theme (e.g. the dark Now Playing screen inside a light app),

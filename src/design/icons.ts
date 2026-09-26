@@ -43,6 +43,13 @@ export const icons = {
   volumeLow: { ios: 'speaker.fill', android: 'volume_mute' },
   volumeHigh: { ios: 'speaker.wave.3.fill', android: 'volume_up' },
   lockScreen: { ios: 'lock.iphone', android: 'screen_lock_portrait' },
+  person: { ios: 'person.fill', android: 'person' },
+  dice: { ios: 'dice', android: 'casino' },
+  haptics: { ios: 'hand.tap', android: 'vibration' },
+  albums: { ios: 'square.grid.2x2', android: 'grid_view' },
+  dragHandle: { ios: 'line.3.horizontal', android: 'drag_handle' },
+  sortAscending: { ios: 'arrow.up', android: 'arrow_upward' },
+  sortDescending: { ios: 'arrow.down', android: 'arrow_downward' },
   sleepTimer: { ios: 'moon.zzz', android: 'bedtime' },
   equalizer: { ios: 'slider.vertical.3', android: 'equalizer' },
 

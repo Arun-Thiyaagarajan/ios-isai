@@ -209,6 +209,25 @@ export function togglePlayPause() {
   native(() => (status.isPlaying ? audio().pause() : audio().play()));
 }
 
+/** Pauses if something is playing (used by the sleep timer). */
+export function pausePlayback() {
+  if (!isAudioAvailable) return;
+  const { status } = usePlayerStore.getState();
+  if (!status.isPlaying) return;
+  usePlayerStore.setState({ status: { ...status, isPlaying: false } });
+  native(() => audio().pause());
+}
+
+const songCompletedListeners = new Set<() => void>();
+
+/** Called whenever a song plays to its end (not when skipped). Returns an unsubscribe function. */
+export function onSongCompleted(listener: () => void): () => void {
+  songCompletedListeners.add(listener);
+  return () => {
+    songCompletedListeners.delete(listener);
+  };
+}
+
 export function skipToNext() {
   if (isAudioAvailable) native(() => audio().skipToNext());
 }
@@ -307,6 +326,9 @@ function onTransition(event: TransitionEvent) {
   // The next listen of this entry (e.g. repeat one) counts as a new "recently played".
   if (markedKey === event.fromKey) {
     markedKey = null;
+  }
+  if (event.completed) {
+    songCompletedListeners.forEach((listener) => listener());
   }
   const item = usePlayerStore.getState().queue.items.find((i) => i.key === event.fromKey);
   if (!item) return;

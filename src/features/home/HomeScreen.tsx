@@ -37,11 +37,12 @@ const FAVORITES: PlayContext = { type: 'favorites', name: 'Favorites' };
 const RECENT: PlayContext = { type: 'recent', name: 'Recently Played' };
 const MOST_PLAYED: PlayContext = { type: 'mostPlayed', name: 'Most Played' };
 
-function greeting(hour = new Date().getHours()) {
-  if (hour < 5) return 'Late night listening';
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+/** "Good evening", or "Good evening, Arun" when the listener has set a name. */
+function greeting(name: string, hour = new Date().getHours()) {
+  const base =
+    hour < 5 ? 'Late night listening' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const trimmed = name.trim();
+  return trimmed ? `${base}, ${trimmed}` : base;
 }
 
 /** The song that's playing (or paused), with a big play/pause button. Tap to open the player. */
@@ -98,6 +99,7 @@ export function HomeScreen() {
   const browse = useBrowse();
   const scanStatus = useScanStore((s) => s.status);
   const showGreeting = useSettings((s) => s.showGreeting);
+  const profileName = useSettings((s) => s.profileName);
   const [refreshing, setRefreshing] = useState(false);
 
   const counts = useQuery({ queryKey: queryKeys.library.counts(), queryFn: () => getLibraryCounts(db) });
@@ -153,7 +155,7 @@ export function HomeScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.intro}>
-        {showGreeting ? <Text variant="title2">{greeting()}</Text> : null}
+        {showGreeting ? <Text variant="title2">{greeting(profileName)}</Text> : null}
         <Text variant="subhead" color="secondary">
           {formatCount(songCount, 'song')} in your library
         </Text>
