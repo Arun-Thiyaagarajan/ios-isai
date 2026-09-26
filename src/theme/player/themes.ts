@@ -39,7 +39,7 @@ export const PLAYER_THEME_IDS = [
 export type PlayerThemeId = (typeof PLAYER_THEME_IDS)[number];
 
 export type GradientStyle = 'linear' | 'radial';
-export type ColorSource = 'theme' | 'artwork';
+export type ColorSource = 'white' | 'theme' | 'artwork';
 
 export type PlayerThemeOptions = {
   /** 0…1: how strongly the artwork is blurred. */
@@ -47,7 +47,10 @@ export type PlayerThemeOptions = {
   /** 0…1: how dark the layer over the artwork is (a minimum: raised if text would be hard to read). */
   overlayDarkness: number;
   gradientStyle: GradientStyle;
-  /** Accent from the app theme (default), or picked from the artwork. */
+  /**
+   * White (default): controls in the text color, like Apple Music. Or the app theme's accent, or a
+   * color picked from the artwork.
+   */
   colorSource: ColorSource;
 };
 export type OptionKey = keyof PlayerThemeOptions;
@@ -57,7 +60,7 @@ export const DEFAULT_PLAYER_OPTIONS: PlayerThemeOptions = {
   blurStrength: 0.7,
   overlayDarkness: 0.35,
   gradientStyle: 'linear',
-  colorSource: 'theme',
+  colorSource: 'white',
 };
 
 export type PlayerTokens = {
@@ -217,9 +220,15 @@ function controlAccent(color: string, bg: string): string {
 function tokensFor(background: string, input: PaletteInput, options: PlayerThemeOptions): PlayerTokens {
   const bg = readableBackground(background);
   const foreground = foregroundFor(bg);
-  // Without artwork colors there's nothing to pick from: the theme accent (or plain text color).
+  // White: controls in the text color. Without artwork colors there's nothing to pick from: the
+  // theme accent (or plain text color).
   const fromArtwork = options.colorSource === 'artwork' && !input.isFallback;
-  const source = fromArtwork ? pickAccent(input.swatches, bg) : (input.themeAccent ?? foreground);
+  const source =
+    options.colorSource === 'white'
+      ? foreground
+      : fromArtwork
+        ? pickAccent(input.swatches, bg)
+        : (input.themeAccent ?? foreground);
   // The accent fills the play button and the progress bar, so it must read on the background and
   // carry a readable glyph.
   const accent = controlAccent(source, bg);
@@ -344,6 +353,6 @@ export function sanitizeOptions(value: unknown): PlayerThemeOptions {
     blurStrength: unit(v.blurStrength, DEFAULT_PLAYER_OPTIONS.blurStrength),
     overlayDarkness: unit(v.overlayDarkness, DEFAULT_PLAYER_OPTIONS.overlayDarkness),
     gradientStyle: v.gradientStyle === 'radial' ? 'radial' : 'linear',
-    colorSource: v.colorSource === 'artwork' ? 'artwork' : 'theme',
+    colorSource: v.colorSource === 'artwork' || v.colorSource === 'theme' ? v.colorSource : 'white',
   };
 }

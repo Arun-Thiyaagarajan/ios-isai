@@ -114,8 +114,9 @@ export function PlayerThemeScreen() {
                   <Segmented
                     value={options.colorSource}
                     choices={[
-                      { value: 'theme', label: 'Theme Accent' },
-                      { value: 'artwork', label: 'From Artwork' },
+                      { value: 'white', label: 'White' },
+                      { value: 'theme', label: 'Theme' },
+                      { value: 'artwork', label: 'Artwork' },
                     ]}
                     onChange={(v) => setOption('colorSource', v)}
                   />

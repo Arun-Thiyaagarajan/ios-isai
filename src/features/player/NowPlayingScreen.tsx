@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -53,8 +53,8 @@ function NowPlaying() {
     );
   }
 
-  // iOS shows the player as a sheet that already starts below the status bar; Android is full screen.
-  const topInset = Platform.OS === 'ios' ? 0 : insets.top;
+  // Full screen on both platforms (like Apple Music), so clear the status bar ourselves.
+  const topInset = insets.top;
   const maxArtwork = width - PLAYER_MARGIN * 2;
   // Before the first layout pass, estimate so the cover doesn't jump in from nothing.
   const artworkSize = Math.floor(Math.min(maxArtwork, artworkArea > 0 ? artworkArea : height * 0.4));

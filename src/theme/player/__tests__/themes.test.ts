@@ -95,8 +95,14 @@ describe('theme specifics', () => {
     },
   );
 
-  it('by default the accent comes from the app theme, not the artwork', () => {
+  it('by default the controls are white, not the theme or artwork color', () => {
     const { tokens } = resolvePlayerTheme('mono', DEFAULT_PLAYER_OPTIONS, { ...covers.colorful, themeAccent: '#5B9BFF' }, 'dark');
+    expect(tokens.accent).toBe(tokens.foreground);
+  });
+
+  it('the Theme option takes the accent from the app theme', () => {
+    const options = { ...DEFAULT_PLAYER_OPTIONS, colorSource: 'theme' as const };
+    const { tokens } = resolvePlayerTheme('mono', options, { ...covers.colorful, themeAccent: '#5B9BFF' }, 'dark');
     expect(tokens.accent).toBe('#5B9BFF');
   });
 

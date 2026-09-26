@@ -28,8 +28,10 @@ function RootStack() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="music-folders" options={{ title: 'Music Folders' }} />
 
-        {/* Now Playing slides up over everything; swipe down to close. */}
-        <Stack.Screen name="player" options={{ presentation: 'modal', headerShown: false }} />
+        {/* Now Playing covers the whole screen, status bar included (like Apple Music). Opened from
+            the mini player it zooms out of the artwork, and iOS's zoom transition gives it
+            swipe-down-to-close. */}
+        <Stack.Screen name="player" options={{ presentation: 'fullScreenModal', headerShown: false }} />
 
         {/* Bottom sheets. */}
         <Stack.Screen
