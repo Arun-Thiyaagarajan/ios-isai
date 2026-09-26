@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { db } from '@/db/client';
@@ -53,7 +53,9 @@ export function NowPlayingScreen() {
     );
   }
 
-  const artworkSize = Math.min(width - theme.spacing.xxxl * 2, height * 0.42);
+  // iOS shows the player as a sheet that already starts below the status bar; Android is full screen.
+  const topInset = Platform.OS === 'ios' ? 0 : insets.top;
+  const artworkSize = Math.min(width - theme.spacing.xxl * 2, height * 0.44);
   const isFavorite = song.data?.isFavorite ?? false;
   const tint = album.data?.colorPrimary;
 
@@ -76,7 +78,12 @@ export function NowPlayingScreen() {
         />
       ) : null}
 
-      <View style={[local.content, { paddingTop: insets.top + theme.spacing.sm, paddingBottom: insets.bottom + theme.spacing.lg }]}>
+      <View
+        style={[
+          local.content,
+          { paddingTop: topInset + theme.spacing.sm, paddingBottom: insets.bottom + theme.spacing.lg },
+        ]}
+      >
         <View style={local.topBar}>
           <IconButton icon="chevronDown" label="Close player" onPress={() => router.back()} />
           <Text variant="footnote" color="secondary" numberOfLines={1} style={local.context}>
@@ -142,6 +149,9 @@ export function NowPlayingScreen() {
           />
         </View>
 
+        {/* Extra height goes here, so everything above stays anchored near the top. */}
+        <View style={local.spacer} />
+
         <View style={local.bottomRow}>
           <IconButton icon="queue" label="Queue" onPress={() => router.push('/queue')} />
         </View>
@@ -171,9 +181,12 @@ const useStyles = makeStyles((t) => ({
     textAlign: 'center',
   },
   artworkArea: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: t.spacing.sm,
+    paddingBottom: t.spacing.md,
+  },
+  spacer: {
+    flex: 1,
   },
   artworkShadow: {
     ...t.shadows.artwork,

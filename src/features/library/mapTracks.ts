@@ -35,8 +35,14 @@ export function mediaStoreRowToTrack(row: MediaStoreRow): ScannedTrack {
     year: row.year,
     trackNo: row.trackNo,
     discNo: row.discNo,
-    // Embedded artwork is detected when thumbnails are generated (next module).
+    // Embedded artwork is detected when thumbnails are generated.
     hasArt: false,
+    // MediaStore indexes the composer; the other details aren't available from it.
+    composer: row.composer ?? null,
+    comment: null,
+    copyright: null,
+    bpm: null,
+    lyrics: null,
     ...playability('android', row.fileName, row.mime),
   };
 }
@@ -87,6 +93,11 @@ export function folderFileToTrack(
     trackNo: tags?.trackNo ?? null,
     discNo: tags?.discNo ?? null,
     hasArt: tags?.hasArt ?? false,
+    composer: tags?.composer ?? null,
+    comment: tags?.comment ?? null,
+    copyright: tags?.copyright ?? null,
+    bpm: tags?.bpm ?? null,
+    lyrics: tags?.lyrics ?? null,
     ...playability('ios', fileName, null),
   };
 }

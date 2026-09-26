@@ -73,6 +73,7 @@ class IsaiLibraryModule : Module() {
       MediaStore.Audio.Media.DISPLAY_NAME,
       MediaStore.Audio.Media.RELATIVE_PATH,
       MediaStore.Audio.Media.VOLUME_NAME,
+      MediaStore.Audio.Media.COMPOSER,
     )
     // These columns only exist from Android 11; querying them earlier throws.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -143,6 +144,7 @@ class IsaiLibraryModule : Module() {
       "relativePath" to c.string(MediaStore.Audio.Media.RELATIVE_PATH),
       "volume" to c.string(MediaStore.Audio.Media.VOLUME_NAME),
       "bitrate" to c.int(MediaStore.Audio.Media.BITRATE)?.takeIf { it > 0 },
+      "composer" to c.tag(MediaStore.Audio.Media.COMPOSER),
     )
   }
 }

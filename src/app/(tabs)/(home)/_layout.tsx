@@ -16,6 +16,14 @@ export default function HomeStack() {
             ...headerActions([{ icon: 'settings', label: 'Settings', onPress: () => router.push('/settings') }]),
           }}
         />
+        <Stack.Screen name="recent" options={{ title: 'Recently Played', headerLargeTitle: true }} />
+        <Stack.Screen name="most-played" options={{ title: 'Most Played', headerLargeTitle: true }} />
+        <Stack.Screen name="favorites" options={{ title: 'Favorites', headerLargeTitle: true }} />
+        <Stack.Screen name="albums" options={{ title: 'Albums', headerLargeTitle: true }} />
+        {/* Titles for these are set by the screens once their data loads. */}
+        <Stack.Screen name="album/[id]" options={{ title: '' }} />
+        <Stack.Screen name="artist/[id]" options={{ title: '' }} />
+        <Stack.Screen name="playlist/[id]" options={{ title: '' }} />
       </Stack>
     </TabStackFrame>
   );

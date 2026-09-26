@@ -43,6 +43,11 @@ function track(overrides: Partial<ScannedTrack> = {}): ScannedTrack {
     trackNo: null,
     discNo: null,
     hasArt: false,
+    composer: null,
+    comment: null,
+    copyright: null,
+    bpm: null,
+    lyrics: null,
     isPlayable: true,
     unplayableReason: null,
     ...overrides,
@@ -180,7 +185,8 @@ describe('library scanning', () => {
     const hits = db.all<{ entity_type: string }>(
       sql`SELECT entity_type FROM search_fts WHERE search_fts MATCH 'beyon*'`,
     );
-    expect(hits.map((h) => h.entity_type).sort()).toEqual(['artist', 'song']);
+    // The album matches too: albums are indexed with their artist.
+    expect(hits.map((h) => h.entity_type).sort()).toEqual(['album', 'artist', 'song']);
   });
 
   it('lists songs alphabetically ignoring "The" and case, in pages', () => {

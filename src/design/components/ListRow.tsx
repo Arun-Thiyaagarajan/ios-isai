@@ -13,6 +13,8 @@ export type ListRowProps = Omit<PressableProps, 'children' | 'style'> & {
   trailing?: ReactNode;
   /** Highlights the row (e.g. the song that is playing). */
   active?: boolean;
+  /** Settings descriptions may wrap; list rows stay one line so they keep a fixed height. */
+  subtitleLines?: number;
 };
 
 /**
@@ -25,6 +27,7 @@ export const ListRow = memo(function ListRow({
   leading,
   trailing,
   active,
+  subtitleLines = 1,
   accessibilityLabel,
   ...rest
 }: ListRowProps) {
@@ -43,7 +46,7 @@ export const ListRow = memo(function ListRow({
           {title}
         </Text>
         {subtitle ? (
-          <Text variant="subhead" color="secondary" numberOfLines={1}>
+          <Text variant="subhead" color="secondary" numberOfLines={subtitleLines}>
             {subtitle}
           </Text>
         ) : null}
@@ -57,6 +60,7 @@ const useStyles = makeStyles((t) => ({
   row: {
     minHeight: t.sizes.listRow,
     paddingHorizontal: t.gutter,
+    paddingVertical: t.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing.md,

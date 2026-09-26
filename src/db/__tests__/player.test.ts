@@ -1,8 +1,16 @@
 /** @jest-environment node */
 import { eq } from 'drizzle-orm';
 
-import { getSongInfo, listFavoriteSongs, listPlaylistSummaries, listPlaylistTracks } from '../repos/browse';
+import {
+  getSongInfo,
+  listFavoriteSongs,
+  listMostPlayedTracks,
+  listPlaylistSummaries,
+  listPlaylistTracks,
+  listRecentlyPlayedTracks,
+} from '../repos/browse';
 import { setFavorite } from '../repos/favorites';
+import { markRecentlyPlayed, recordPlayEvents } from '../repos/history';
 import { getPlayableSongs, listSongIds, loadSavedQueue, saveQueue } from '../repos/player';
 import { addSongsToPlaylist, createPlaylist } from '../repos/playlists';
 import { songs } from '../schema';
@@ -78,5 +86,26 @@ describe('playlists and favorites', () => {
     expect(getSongInfo(db, alpha)).toMatchObject({ title: 'Alpha', isFavorite: true, album: 'Blue' });
     setFavorite(db, 'song', alpha, false);
     expect(getSongInfo(db, alpha)?.isFavorite).toBe(false);
+  });
+});
+
+describe('listening history', () => {
+  it('shows a song in Recently Played as soon as it starts, without counting a play', () => {
+    const { db, alpha, beta } = library();
+    markRecentlyPlayed(db, alpha, 1000);
+    markRecentlyPlayed(db, beta, 2000);
+    expect(listRecentlyPlayedTracks(db, 10).map((s) => s.title)).toEqual(['Beta', 'Alpha']);
+    expect(listMostPlayedTracks(db, 10)).toEqual([]);
+  });
+
+  it('keeps the newest time when a skip follows, and counts finished listens', () => {
+    const { db, alpha, beta } = library();
+    markRecentlyPlayed(db, alpha, 5000);
+    recordPlayEvents(db, [{ songId: alpha, startedAt: 5000, msPlayed: 2000, durationMs: 200_000, completed: false }]);
+    markRecentlyPlayed(db, beta, 6000);
+    recordPlayEvents(db, [{ songId: beta, startedAt: 6000, msPlayed: 200_000, durationMs: 200_000, completed: true }]);
+    markRecentlyPlayed(db, alpha, 3000); // an older timestamp never moves it back
+    expect(listRecentlyPlayedTracks(db, 10).map((s) => s.title)).toEqual(['Beta', 'Alpha']);
+    expect(listMostPlayedTracks(db, 10).map((s) => [s.title, s.playCount])).toEqual([['Beta', 1]]);
   });
 });

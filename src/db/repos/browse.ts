@@ -108,7 +108,7 @@ export type TrackItem = {
 const trackColumns = sql`
   s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
   s.track_no AS trackNo, s.disc_no AS discNo, s.duration_ms AS durationMs,
-  s.is_playable AS isPlayable, a.artwork_key AS artworkKey
+  s.is_playable AS isPlayable, coalesce(s.artwork_override, a.artwork_key) AS artworkKey
 `;
 
 function mapTracks(rows: (Omit<TrackItem, 'isPlayable'> & { isPlayable: number | boolean })[]): TrackItem[] {
@@ -316,7 +316,7 @@ export function listPlaylistTracks(db: AppDatabase, playlistId: number): Playlis
     SELECT ps.id AS entryId, ps.song_fingerprint AS fingerprint, s.is_available AS available,
            s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
            s.track_no AS trackNo, s.disc_no AS discNo, s.duration_ms AS durationMs,
-           s.is_playable AS isPlayable, a.artwork_key AS artworkKey
+           s.is_playable AS isPlayable, coalesce(s.artwork_override, a.artwork_key) AS artworkKey
     FROM playlist_songs ps
     LEFT JOIN songs s ON s.id = ps.song_id
     LEFT JOIN albums a ON a.id = s.album_id
@@ -367,10 +367,39 @@ export function getSongInfo(db: AppDatabase, songId: number): SongInfo | undefin
   const row = db.get<Omit<SongInfo, 'isFavorite'> & { isFavorite: number }>(sql`
     SELECT s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
       (SELECT artist_id FROM song_artists WHERE song_id = s.id AND role = 'artist' ORDER BY position LIMIT 1) AS artistId,
-      a.artwork_key AS artworkKey,
+      coalesce(s.artwork_override, a.artwork_key) AS artworkKey,
       EXISTS (SELECT 1 FROM favorites WHERE entity_type = 'song' AND entity_id = s.id) AS isFavorite
     FROM songs s LEFT JOIN albums a ON a.id = s.album_id
     WHERE s.id = ${songId}
   `);
   return row ? { ...row, isFavorite: Boolean(row.isFavorite) } : undefined;
+}
+
+// ─── Listening history ──────────────────────────────────────────────────────
+
+export function listRecentlyPlayedTracks(db: AppDatabase, limit: number): TrackItem[] {
+  return mapTracks(
+    db.all(sql`
+      SELECT ${trackColumns} FROM song_stats st
+      JOIN songs s ON s.id = st.song_id
+      LEFT JOIN albums a ON a.id = s.album_id
+      WHERE st.last_played_at IS NOT NULL AND s.is_available = 1
+      ORDER BY st.last_played_at DESC
+      LIMIT ${limit}
+    `),
+  );
+}
+
+export type RankedTrack = TrackItem & { playCount: number };
+
+export function listMostPlayedTracks(db: AppDatabase, limit: number): RankedTrack[] {
+  const rows = db.all<Omit<RankedTrack, 'isPlayable'> & { isPlayable: number }>(sql`
+    SELECT ${trackColumns}, st.play_count AS playCount FROM song_stats st
+    JOIN songs s ON s.id = st.song_id
+    LEFT JOIN albums a ON a.id = s.album_id
+    WHERE st.play_count > 0 AND s.is_available = 1
+    ORDER BY st.play_count DESC, st.last_played_at DESC
+    LIMIT ${limit}
+  `);
+  return rows.map((row) => ({ ...row, isPlayable: Boolean(row.isPlayable) }));
 }

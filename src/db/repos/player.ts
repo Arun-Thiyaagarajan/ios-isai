@@ -32,7 +32,8 @@ export function getPlayableSongs(db: AppDatabase, ids: number[]): PlayableSong[]
     const rows = db.all<Omit<PlayableSong, 'isPlayable'> & { isPlayable: number }>(sql`
       SELECT s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
              s.duration_ms AS durationMs, s.is_playable AS isPlayable, s.source AS source, s.source_id AS sourceId,
-             s.uri AS uri, r.bookmark AS bookmark, a.artwork_key AS artworkKey
+             s.uri AS uri, r.bookmark AS bookmark,
+             coalesce(s.artwork_override, a.artwork_key) AS artworkKey
       FROM songs s
       LEFT JOIN albums a ON a.id = s.album_id
       LEFT JOIN library_roots r ON r.id = s.root_id

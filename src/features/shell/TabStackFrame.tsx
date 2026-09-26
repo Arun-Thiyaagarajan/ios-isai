@@ -1,13 +1,16 @@
-import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import type { ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MiniPlayer } from '@/features/player/MiniPlayer';
 
-/** iOS 26+ shows the mini player in the native tab bar accessory instead (see AppTabs). */
+/**
+ * iOS 26+ shows the mini player in the native tab bar accessory instead (see AppTabs), like
+ * Apple Music. Decided by OS version: the accessory is a tab bar feature, independent of the
+ * glass-effect API checks.
+ */
 export const usesTabBarAccessory =
-  Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  Platform.OS === 'ios' && Number.parseInt(String(Platform.Version), 10) >= 26;
 
 /** Standard UITabBar height above the home indicator on iOS before 26. */
 const IOS_TAB_BAR_HEIGHT = 49;

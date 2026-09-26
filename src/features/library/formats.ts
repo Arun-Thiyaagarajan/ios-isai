@@ -5,8 +5,12 @@
 type Platform = 'ios' | 'android';
 
 const UNSUPPORTED: Record<Platform, Record<string, string>> = {
+  // iPhone's built-in player can't open Ogg containers; a future audio engine adds them.
   ios: {
     wma: 'WMA isn’t supported on iPhone',
+    ogg: 'Ogg isn’t supported on iPhone yet',
+    oga: 'Ogg isn’t supported on iPhone yet',
+    opus: 'Opus isn’t supported on iPhone yet',
   },
   android: {
     wma: 'WMA isn’t supported on Android',

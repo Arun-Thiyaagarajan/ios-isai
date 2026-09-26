@@ -33,6 +33,7 @@ export type MediaStoreRow = {
   relativePath: string | null;
   volume: string | null;
   bitrate: number | null;
+  composer: string | null;
 };
 
 /** A saved artwork thumbnail and colors picked from it (hex strings). */
@@ -85,6 +86,12 @@ export type FileTags = {
   discNo?: number;
   durationMs: number;
   hasArt: boolean;
+  composer?: string;
+  comment?: string;
+  copyright?: string;
+  bpm?: number;
+  /** Unsynchronized lyrics (ID3 USLT / MP4 ©lyr). */
+  lyrics?: string;
 };
 
 type IosLibraryModule = {

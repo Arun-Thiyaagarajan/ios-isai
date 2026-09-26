@@ -23,6 +23,7 @@ const row: MediaStoreRow = {
   relativePath: 'Music/Artist/Album/',
   volume: 'external_primary',
   bitrate: null,
+  composer: 'A Composer',
 };
 
 describe('mediaStoreRowToTrack', () => {
@@ -67,5 +68,11 @@ describe('playability', () => {
     expect(playability('ios', 'a.wma', null).isPlayable).toBe(false);
     expect(playability('android', 'a.bin', 'audio/x-ms-wma').isPlayable).toBe(false);
     expect(playability('ios', 'a.FLAC', null)).toEqual({ isPlayable: true, unplayableReason: null });
+  });
+
+  it('flags Ogg and Opus on iPhone only', () => {
+    expect(playability('ios', 'a.opus', null).isPlayable).toBe(false);
+    expect(playability('ios', 'a.ogg', null).unplayableReason).toMatch(/iPhone/);
+    expect(playability('android', 'a.opus', 'audio/ogg').isPlayable).toBe(true);
   });
 });

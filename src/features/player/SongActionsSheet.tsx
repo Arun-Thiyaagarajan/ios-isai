@@ -69,6 +69,11 @@ export function SongActionsSheet() {
       },
     },
   ];
+  actions.push({
+    icon: 'edit',
+    title: 'Edit Info',
+    onPress: () => router.replace({ pathname: '/edit-song', params: { songId: String(songId) } }),
+  });
   if (info.albumId !== null) {
     actions.push({ icon: 'album', title: 'Go to Album', onPress: () => goTo(`/(tabs)/(library)/album/${info.albumId}`) });
   }

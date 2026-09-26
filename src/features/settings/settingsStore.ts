@@ -11,12 +11,21 @@ export type Settings = {
   matchSystem: boolean;
   /** Look for new, changed or deleted music every time Isai opens. */
   autoScan: boolean;
+  /** Bring back the last queue (paused, same position) when Isai opens. */
+  restoreQueue: boolean;
+  /** Swipe the mini player left/right to change songs. */
+  miniPlayerSwipe: boolean;
+  /** Time-of-day greeting at the top of Home. */
+  showGreeting: boolean;
 };
 
 export const settingsDefaults: Settings = {
   theme: 'midnight',
   matchSystem: true,
   autoScan: true,
+  restoreQueue: true,
+  miniPlayerSwipe: true,
+  showGreeting: true,
 };
 
 /** Guards against stored values from older versions or corrupted rows. */
@@ -24,6 +33,9 @@ const validators: { [K in keyof Settings]: (value: unknown) => value is Settings
   theme: (v): v is ThemeName => typeof v === 'string' && v in themes,
   matchSystem: (v): v is boolean => typeof v === 'boolean',
   autoScan: (v): v is boolean => typeof v === 'boolean',
+  restoreQueue: (v): v is boolean => typeof v === 'boolean',
+  miniPlayerSwipe: (v): v is boolean => typeof v === 'boolean',
+  showGreeting: (v): v is boolean => typeof v === 'boolean',
 };
 
 type SettingsState = Settings & {

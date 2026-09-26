@@ -10,13 +10,16 @@ import { AppState, Platform } from 'react-native';
 import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
 import { queryKeys } from '@/db/queryKeys';
-import { recordPlayEvents } from '@/db/repos/history';
+import { markRecentlyPlayed, recordPlayEvents } from '@/db/repos/history';
 import {
   getPlayableSongs,
   loadSavedQueue,
   saveQueue,
   type PlayableSong,
 } from '@/db/repos/player';
+
+import { useSettings } from '@/features/settings/settingsStore';
+import { showToast } from '@/features/shell/toast';
 
 import { usePlayerStore } from './playerStore';
 import {
@@ -221,6 +224,26 @@ export function seekTo(positionMs: number) {
 
 // ─── Engine events ──────────────────────────────────────────────────────────
 
+/** A song counts as "recently played" once it has played this long. */
+const RECENT_AFTER_MS = 1000;
+/** Queue entry already marked as recently played during its current listen. */
+let markedKey: string | null = null;
+
+function markIfListening(event: PlaybackStateEvent) {
+  if (!event.key || !event.isPlaying || event.positionMs < RECENT_AFTER_MS || event.key === markedKey) {
+    return;
+  }
+  const item = usePlayerStore.getState().queue.items.find((i) => i.key === event.key);
+  if (!item) return;
+  markedKey = event.key;
+  try {
+    markRecentlyPlayed(db, item.songId, Date.now());
+    queryClient.invalidateQueries({ queryKey: queryKeys.history.all });
+  } catch {
+    // Best-effort: the song may have just been removed from the library.
+  }
+}
+
 function onPlaybackState(event: PlaybackStateEvent) {
   const { queue } = usePlayerStore.getState();
   let index = queue.index;
@@ -241,6 +264,7 @@ function onPlaybackState(event: PlaybackStateEvent) {
       timestamp: event.timestamp,
     },
   });
+  markIfListening(event);
   if (event.queueLength !== queue.items.length) {
     // Commands may still be in flight; compare again once they're done.
     native(() => resync());
@@ -274,6 +298,10 @@ async function resync() {
 }
 
 function onTransition(event: TransitionEvent) {
+  // The next listen of this entry (e.g. repeat one) counts as a new "recently played".
+  if (markedKey === event.fromKey) {
+    markedKey = null;
+  }
   const item = usePlayerStore.getState().queue.items.find((i) => i.key === event.fromKey);
   if (!item) return;
   try {
@@ -359,10 +387,45 @@ export function startPlayer() {
   const engine = audio();
   engine.addListener('onPlaybackState', onPlaybackState);
   engine.addListener('onTransition', onTransition);
-  engine.addListener('onError', (event) => usePlayerStore.setState({ lastError: event.message }));
-  restore();
+  engine.addListener('onError', (event) => {
+    usePlayerStore.setState({ lastError: event.message });
+    const item = usePlayerStore.getState().queue.items.find((i) => i.key === event.key);
+    showToast(item ? `Couldn’t play “${item.title}”. Skipped.` : 'A song couldn’t be played.');
+  });
+  if (useSettings.getState().restoreQueue) {
+    restore();
+  }
   // Save the exact position when the app goes to the background.
   AppState.addEventListener('change', (state) => {
     if (state !== 'active') saveNow();
+  });
+}
+
+/**
+ * After a song's details were edited, refreshes every queued copy of it (Now Playing, mini player,
+ * queue). The lock screen picks up the new details the next time the song starts.
+ */
+export function refreshSongInQueue(songId: number) {
+  const song = getPlayableSongs(db, [songId])[0];
+  if (!song) return;
+  const { queue } = usePlayerStore.getState();
+  if (!queue.items.some((item) => item.songId === songId)) return;
+  const fresh = toQueueItem(song);
+  usePlayerStore.setState({
+    queue: {
+      ...queue,
+      items: queue.items.map((item) =>
+        item.songId === songId
+          ? {
+              ...item,
+              title: fresh.title,
+              artist: fresh.artist,
+              album: fresh.album,
+              albumId: fresh.albumId,
+              artworkUri: fresh.artworkUri,
+            }
+          : item,
+      ),
+    },
   });
 }

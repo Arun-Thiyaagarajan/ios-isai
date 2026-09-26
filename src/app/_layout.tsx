@@ -6,11 +6,14 @@ import { useEffect, useState } from 'react';
 
 import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
+import { ensureSearchIndex } from '@/db/repos/search';
 import { EmptyState, ThemeProvider, useTheme } from '@/design';
 import { scanLibrary } from '@/features/library/scanService';
 import { startPlayer } from '@/features/player/playerService';
 import { useSettings } from '@/features/settings/settingsStore';
+import { hideSplashNow, SplashIntro } from '@/features/shell/SplashIntro';
 import { stackScreenOptions } from '@/features/shell/stackOptions';
+import { ToastHost } from '@/features/shell/toast';
 
 import migrations from '../../drizzle/migrations';
 
@@ -22,7 +25,6 @@ function RootStack() {
       <Stack screenOptions={stackScreenOptions}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-        <Stack.Screen name="dev/gallery" options={{ title: 'Design Gallery' }} />
         <Stack.Screen name="music-folders" options={{ title: 'Music Folders' }} />
 
         {/* Now Playing slides up over everything; swipe down to close. */}
@@ -57,7 +59,9 @@ function RootStack() {
           }}
         />
         <Stack.Screen name="playlist-edit" options={{ presentation: 'modal', title: 'New Playlist' }} />
+        <Stack.Screen name="edit-song" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
+      <ToastHost />
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
     </>
   );
@@ -73,6 +77,8 @@ function App() {
   // Pick up added, changed or deleted music files once per launch (fast when nothing changed),
   // and reconnect to the player with the last queue (paused).
   useEffect(() => {
+    // After an upgrade the search index may be empty until the next scan; fill it now.
+    ensureSearchIndex(db);
     startPlayer();
     if (useSettings.getState().autoScan) {
       scanLibrary();
@@ -83,6 +89,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider themeName={themeName} matchSystem={matchSystem}>
         <RootStack />
+        {/* Launch animation, on top of the first screen; removes itself when done. */}
+        <SplashIntro />
       </ThemeProvider>
     </QueryClientProvider>
   );
@@ -92,6 +100,7 @@ export default function RootLayout() {
   const { success, error } = useMigrations(db, migrations);
 
   if (error) {
+    hideSplashNow();
     return (
       <ThemeProvider>
         <EmptyState

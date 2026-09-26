@@ -1,6 +1,6 @@
 @AGENTS.md
 
-> **Current phase:** Modules 1–4 done (shell; design system; database; music library: native module `modules/isai-library` [Kotlin MediaStore, Swift folder bookmarks + AVFoundation tags], scan pipeline `src/features/library/scanService.ts` with auto-scan on launch + folder include/exclude, repo `src/db/repos/library.ts`, A–Z song list, Settings › Library and Music Folders screens). ⚠ Native Kotlin/Swift has not been compiled yet (no Android SDK/Xcode on the Windows machine): first dev build on the Mac may need small fixes. Module 5 done: artwork thumbnails + palette colors (native `getArtwork`, `src/features/library/artwork.ts`), browse queries `src/db/repos/browse.ts`, Library home + Songs/Albums/Artists/Genres/Folders + album/artist/genre pages (screens in `src/features/library/screens`, routes are one-line re-exports; open them with `useBrowse()`; only the Library tab declares detail routes so far). Module 6 done: 4 app themes (Pure Black, Midnight, Aurora, Pearl + Match System, picker cards in Settings); native player `modules/isai-audio` (iOS AVPlayer + MPRemoteCommandCenter, Android Media3 MediaSessionService); queue logic `src/features/player/queue.ts` (pure, tested; native only gets insert/remove/move ops, run serially); player service/store, mini player (iOS 26 tab-bar accessory, else `TabStackFrame`), Now Playing modal, Queue/song-actions/add-to-playlist sheets, playlists + favorites screens. Header buttons must use `headerActions()` (native items on iOS). Full-page empty states use `EmptyScreen`. Next: Module 7, Home + Search, then player styles/progress styles from prompt.txt. Conventions: `Text variant=`, `Icon name=` from `src/design/icons.ts`, `makeStyles`, no raw colors/sizes in screens; back buttons icon-only via `stackScreenOptions`; schema changes → edit schema.ts then `npm run db:generate` (never edit an applied migration); repos take `AppDatabase` and are tested with better-sqlite3; import native modules as `@modules/<name>` and guard with `isLibraryAvailable` (Expo Go has no custom native code).
+> **Current phase:** Modules 1–8 done + app icon & animated splash. Search: FTS5 `search_fts` (title / artist-album-composer-genre / file-lyrics-comment), `src/db/repos/search.ts`, Liquid Glass `SearchField`. Edit Song Info: `src/db/repos/songEdits.ts` + `song_overrides` (edits re-applied on every scan via `upsertTracks`; writing tags into files not supported yet); `src/db/songFields.ts` is the single definition of editable fields. Splash: native splash (expo-splash-screen, glyph 72dp, #FFFFFF / #0B1020) then `SplashIntro` overlay (use numeric `transformOrigin`, never percentage strings). Toasts: `showToast()`. Custom `Toggle` (never RN Switch); `headerActions()` for header buttons; `EmptyScreen` for empty pages. Next: Module 9 (haptics, drag-to-reorder, sleep timer, sorting + A–Z scroller), then Module 10 (mini→full player animation, player/progress styles from prompt.txt).
 
 # Isai — Technical & Product Plan
 
@@ -651,3 +651,13 @@ Each step ends in a **runnable milestone** you can demo on both platforms.
 1. Phase 0 spikes (engine + nav) in throwaway branches, with decisions recorded.
 2. Step 3 project hygiene in the existing `ios-isai` repo (rename to Isai in config; the folder name can stay).
 3. Continue down the roadmap one milestone at a time, with each step verified as above before moving on.
+
+## Isai design rules
+- Brand colors: ink #15171B, white #FFFFFF. Everything else comes from the current album art.
+- Gradients and blur are allowed ONLY in player backgrounds. Buttons, sliders and icons stay flat.
+- Always show track metadata through src/utils/cleanMetadata.ts.
+- Player backgrounds are driven by the player theme system in src/theme/player/ (never hardcode a background in a screen).
+- Text and icon colors on the player must be computed from the background for at least 4.5:1 contrast.
+- Animations: react-native-reanimated. Gestures: react-native-gesture-handler. Respect reduce motion.
+- Ask before adding any new dependency, and explain why.
+- Do not change playback logic when doing UI work.

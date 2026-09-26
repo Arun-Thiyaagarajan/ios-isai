@@ -29,6 +29,20 @@
       "when": 1790394000827,
       "tag": "0003_album_display_artist",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790403578568,
+      "tag": "0004_song_details_and_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790403582541,
+      "tag": "0005_search_index_v2",
+      "breakpoints": true
     }
   ]
 }

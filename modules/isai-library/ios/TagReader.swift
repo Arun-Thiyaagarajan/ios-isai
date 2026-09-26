@@ -14,6 +14,11 @@ struct TrackTags: Sendable {
   var discNo: Int?
   var durationMs: Int = 0
   var hasArt = false
+  var composer: String?
+  var comment: String?
+  var copyright: String?
+  var bpm: Int?
+  var lyrics: String?
 
   var dictionary: [String: Any] {
     var d: [String: Any] = ["path": path, "readable": readable, "durationMs": durationMs, "hasArt": hasArt]
@@ -25,6 +30,11 @@ struct TrackTags: Sendable {
     d["year"] = year
     d["trackNo"] = trackNo
     d["discNo"] = discNo
+    d["composer"] = composer
+    d["comment"] = comment
+    d["copyright"] = copyright
+    d["bpm"] = bpm
+    d["lyrics"] = lyrics
     return d
   }
 }
@@ -97,6 +107,16 @@ enum TagReader {
         if tags.trackNo == nil { tags.trackNo = await packedNumber(item) }
       case .iTunesMetadataDiscNumber:
         if tags.discNo == nil { tags.discNo = await packedNumber(item) }
+      case .id3MetadataComposer, .iTunesMetadataComposer:
+        if tags.composer == nil { tags.composer = await text(item) }
+      case .id3MetadataComments, .iTunesMetadataUserComment:
+        if tags.comment == nil { tags.comment = await text(item) }
+      case .commonIdentifierCopyrights, .id3MetadataCopyright, .iTunesMetadataCopyright:
+        if tags.copyright == nil { tags.copyright = await text(item) }
+      case .id3MetadataBeatsPerMinute, .iTunesMetadataBeatsPerMin:
+        if tags.bpm == nil { tags.bpm = await text(item).flatMap(leadingNumber) }
+      case .id3MetadataUnsynchronizedLyric, .iTunesMetadataLyrics:
+        if tags.lyrics == nil { tags.lyrics = await text(item) }
       case .commonIdentifierArtwork, .id3MetadataAttachedPicture, .iTunesMetadataCoverArt:
         tags.hasArt = true
       default:

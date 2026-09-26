@@ -90,3 +90,17 @@ export function mostPlayedSongIds(db: AppDatabase, limit = 20): number[] {
     .all()
     .map((row) => row.id);
 }
+
+/**
+ * Puts a song at the top of Recently Played as soon as it starts playing (after ~1 second),
+ * without counting it as a play; the play count waits for the finished listen.
+ */
+export function markRecentlyPlayed(db: AppDatabase, songId: number, at: number): void {
+  db.insert(songStats)
+    .values({ songId, lastPlayedAt: at })
+    .onConflictDoUpdate({
+      target: songStats.songId,
+      set: { lastPlayedAt: sql`max(coalesce(${songStats.lastPlayedAt}, 0), ${at})` },
+    })
+    .run();
+}

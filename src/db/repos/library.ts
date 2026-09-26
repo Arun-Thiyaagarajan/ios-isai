@@ -12,9 +12,12 @@ import {
   scanState,
   songArtists,
   songGenres,
+  songOverrides,
   songs,
 } from '../schema';
+import { applyOverride, parseOverride, type SongOverride } from '../songFields';
 import type { AppDatabase } from '../types';
+import { rebuildSearchIndex } from './search';
 
 // ─── Scanned input ──────────────────────────────────────────────────────────
 
@@ -44,6 +47,12 @@ export type ScannedTrack = {
   trackNo: number | null;
   discNo: number | null;
   hasArt: boolean;
+  composer: string | null;
+  comment: string | null;
+  copyright: string | null;
+  bpm: number | null;
+  /** Unsynchronized lyrics embedded in the file, if any. */
+  lyrics: string | null;
   isPlayable: boolean;
   unplayableReason: string | null;
 };
@@ -93,7 +102,18 @@ export class ScanContext {
   readonly albums = new Map<string, number>();
   readonly genres = new Map<string, number>();
   readonly folders = new Map<string, number>();
+  /** User edits by "<source>|<sourceId>", loaded on first use. */
+  overrides: Map<string, SongOverride> | null = null;
   constructor(readonly generation: number) {}
+}
+
+export function sourceKey(source: string, sourceId: string): string {
+  return `${source}|${sourceId}`;
+}
+
+function loadOverrides(tx: Pick<AppDatabase, 'select'>): Map<string, SongOverride> {
+  const rows = tx.select({ key: songOverrides.sourceKey, json: songOverrides.dataJson }).from(songOverrides).all();
+  return new Map(rows.map((row) => [row.key, parseOverride(row.json)]));
 }
 
 type Tx = Parameters<Parameters<AppDatabase['transaction']>[0]>[0];
@@ -193,7 +213,11 @@ export function upsertTracks(db: AppDatabase, ctx: ScanContext, tracks: ScannedT
     return;
   }
   db.transaction((tx) => {
-    for (const track of tracks) {
+    ctx.overrides ??= loadOverrides(tx);
+    for (const scanned of tracks) {
+      // The user's edits (Edit Song Info) win over the file's tags, on every scan.
+      const override = ctx.overrides.get(sourceKey(scanned.source, scanned.sourceId));
+      const track = override ? applyOverride(scanned, override) : scanned;
       const title = track.title?.trim() || stripExtension(track.fileName);
       const artistName = track.artist?.trim() || UNKNOWN_ARTIST;
       const albumTitle = track.album?.trim() || UNKNOWN_ALBUM;
@@ -229,6 +253,10 @@ export function upsertTracks(db: AppDatabase, ctx: ScanContext, tracks: ScannedT
         trackNo: track.trackNo,
         discNo: track.discNo,
         hasArt: track.hasArt,
+        composer: track.composer?.trim() || null,
+        comment: track.comment?.trim() || null,
+        copyright: track.copyright?.trim() || null,
+        bpm: track.bpm,
         isPlayable: track.isPlayable,
         unplayableReason: track.unplayableReason,
         isAvailable: true,
@@ -259,6 +287,23 @@ export function upsertTracks(db: AppDatabase, ctx: ScanContext, tracks: ScannedT
       for (const genreName of new Set(genreNames)) {
         tx.insert(songGenres).values({ songId, genreId: ensureGenre(tx, ctx, genreName) }).onConflictDoNothing().run();
       }
+
+      // Lyrics from the file; lyrics the user typed in Isai ('user') are never replaced.
+      const lyrics = track.lyrics?.trim();
+      if (lyrics) {
+        tx.run(sql`
+          INSERT INTO lyrics_cache (song_id, source, is_synced, content, updated_at)
+          VALUES (${songId}, 'embedded', 0, ${lyrics}, ${Date.now()})
+          ON CONFLICT (song_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at
+          WHERE lyrics_cache.source = 'embedded'
+        `);
+      } else {
+        tx.run(sql`DELETE FROM lyrics_cache WHERE song_id = ${songId} AND source = 'embedded'`);
+      }
+      tx.run(sql`
+        UPDATE songs SET has_lyrics = EXISTS (SELECT 1 FROM lyrics_cache l WHERE l.song_id = songs.id AND l.content != '')
+        WHERE id = ${songId}
+      `);
     }
   });
 }
@@ -290,6 +335,66 @@ export function touchSongs(db: AppDatabase, generation: number, source: SongSour
   });
 }
 
+type Runner = Pick<AppDatabase, 'run' | 'get'>;
+
+/**
+ * Recomputes album/artist/genre/folder counts and display artists, and removes entities no song
+ * refers to anymore. Used after scans and after editing a song.
+ */
+export function refreshAggregates(db: Runner): void {
+  db.run(sql`
+    UPDATE albums SET
+      song_count = (SELECT count(*) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
+      total_duration_ms = (SELECT coalesce(sum(s.duration_ms), 0) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
+      year = (SELECT max(s.year) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1)
+  `);
+  db.run(sql`
+    UPDATE albums SET display_artist = coalesce(
+      (SELECT name FROM artists WHERE id = albums.album_artist_id),
+      (SELECT CASE WHEN count(DISTINCT s.artist_display) <= 1 THEN max(s.artist_display) ELSE ${VARIOUS_ARTISTS} END
+       FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
+      ''
+    )
+  `);
+  db.run(sql`
+    UPDATE artists SET
+      song_count = (SELECT count(*) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
+                    WHERE sa.artist_id = artists.id AND sa.role = 'artist' AND s.is_available = 1),
+      album_count = (SELECT count(DISTINCT s.album_id) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
+                     WHERE sa.artist_id = artists.id AND s.is_available = 1)
+  `);
+  db.run(sql`
+    UPDATE genres SET song_count = (SELECT count(*) FROM song_genres sg JOIN songs s ON s.id = sg.song_id
+                                    WHERE sg.genre_id = genres.id AND s.is_available = 1)
+  `);
+  db.run(sql`
+    UPDATE folders SET song_count = (SELECT count(*) FROM songs s WHERE s.folder_id = folders.id AND s.is_available = 1)
+  `);
+
+  // Entities no song refers to anymore (missing songs still hold theirs until purged).
+  db.run(sql`DELETE FROM albums WHERE NOT EXISTS (SELECT 1 FROM songs s WHERE s.album_id = albums.id)`);
+  db.run(sql`DELETE FROM genres WHERE NOT EXISTS (SELECT 1 FROM song_genres sg WHERE sg.genre_id = genres.id)`);
+  db.run(sql`
+    DELETE FROM artists
+    WHERE NOT EXISTS (SELECT 1 FROM song_artists sa WHERE sa.artist_id = artists.id)
+      AND NOT EXISTS (SELECT 1 FROM albums a WHERE a.album_artist_id = artists.id)
+  `);
+  // Remove empty leaf folders repeatedly until only folders with music (or music below them) remain.
+  for (let i = 0; i < 64; i++) {
+    const before = db.get<{ n: number }>(sql`SELECT count(*) AS n FROM folders`)?.n ?? 0;
+    db.run(sql`
+      DELETE FROM folders
+      WHERE NOT EXISTS (SELECT 1 FROM songs s WHERE s.folder_id = folders.id)
+        AND NOT EXISTS (SELECT 1 FROM folders c WHERE c.parent_id = folders.id)
+    `);
+    const after = db.get<{ n: number }>(sql`SELECT count(*) AS n FROM folders`)?.n ?? 0;
+    if (after === before) {
+      break;
+    }
+  }
+
+}
+
 export type ScanScope = { sources?: SongSource[]; rootIds?: number[] };
 
 /**
@@ -317,88 +422,9 @@ export function finishScan(db: AppDatabase, generation: number, scope: ScanScope
       .where(and(eq(songs.isAvailable, false), lt(songs.missingSince, now - PURGE_MISSING_AFTER_MS)))
       .run();
 
-    tx.run(sql`
-      UPDATE albums SET
-        song_count = (SELECT count(*) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
-        total_duration_ms = (SELECT coalesce(sum(s.duration_ms), 0) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
-        year = (SELECT max(s.year) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1)
-    `);
-    tx.run(sql`
-      UPDATE albums SET display_artist = coalesce(
-        (SELECT name FROM artists WHERE id = albums.album_artist_id),
-        (SELECT CASE WHEN count(DISTINCT s.artist_display) <= 1 THEN max(s.artist_display) ELSE ${VARIOUS_ARTISTS} END
-         FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
-        ''
-      )
-    `);
-    tx.run(sql`
-      UPDATE artists SET
-        song_count = (SELECT count(*) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
-                      WHERE sa.artist_id = artists.id AND sa.role = 'artist' AND s.is_available = 1),
-        album_count = (SELECT count(DISTINCT s.album_id) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
-                       WHERE sa.artist_id = artists.id AND s.is_available = 1)
-    `);
-    tx.run(sql`
-      UPDATE genres SET song_count = (SELECT count(*) FROM song_genres sg JOIN songs s ON s.id = sg.song_id
-                                      WHERE sg.genre_id = genres.id AND s.is_available = 1)
-    `);
-    tx.run(sql`
-      UPDATE folders SET song_count = (SELECT count(*) FROM songs s WHERE s.folder_id = folders.id AND s.is_available = 1)
-    `);
-
-    // Entities no song refers to anymore (missing songs still hold theirs until purged).
-    tx.run(sql`DELETE FROM albums WHERE NOT EXISTS (SELECT 1 FROM songs s WHERE s.album_id = albums.id)`);
-    tx.run(sql`DELETE FROM genres WHERE NOT EXISTS (SELECT 1 FROM song_genres sg WHERE sg.genre_id = genres.id)`);
-    tx.run(sql`
-      DELETE FROM artists
-      WHERE NOT EXISTS (SELECT 1 FROM song_artists sa WHERE sa.artist_id = artists.id)
-        AND NOT EXISTS (SELECT 1 FROM albums a WHERE a.album_artist_id = artists.id)
-    `);
-    // Remove empty leaf folders repeatedly until only folders with music (or music below them) remain.
-    for (let i = 0; i < 64; i++) {
-      const before = tx.get<{ n: number }>(sql`SELECT count(*) AS n FROM folders`)?.n ?? 0;
-      tx.run(sql`
-        DELETE FROM folders
-        WHERE NOT EXISTS (SELECT 1 FROM songs s WHERE s.folder_id = folders.id)
-          AND NOT EXISTS (SELECT 1 FROM folders c WHERE c.parent_id = folders.id)
-      `);
-      const after = tx.get<{ n: number }>(sql`SELECT count(*) AS n FROM folders`)?.n ?? 0;
-      if (after === before) {
-        break;
-      }
-    }
-
+    refreshAggregates(tx);
     rebuildSearchIndex(tx);
   });
-}
-
-/** Rebuilds the full-text index from scratch; a single set-based pass is fast even for 50k songs. */
-export function rebuildSearchIndex(db: AppDatabase | Tx): void {
-  db.run(sql`DELETE FROM search_fts`);
-  db.run(sql`
-    INSERT INTO search_fts (entity_type, entity_id, primary_text, secondary_text)
-    SELECT 'song', s.id, s.title, s.artist_display || ' ' || coalesce(a.title, '')
-    FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-    WHERE s.is_available = 1
-  `);
-  db.run(sql`
-    INSERT INTO search_fts (entity_type, entity_id, primary_text, secondary_text)
-    SELECT 'artist', id, name, '' FROM artists WHERE song_count > 0
-  `);
-  db.run(sql`
-    INSERT INTO search_fts (entity_type, entity_id, primary_text, secondary_text)
-    SELECT 'album', al.id, al.title, coalesce(ar.name, '')
-    FROM albums al LEFT JOIN artists ar ON ar.id = al.album_artist_id
-    WHERE al.song_count > 0
-  `);
-  db.run(sql`
-    INSERT INTO search_fts (entity_type, entity_id, primary_text, secondary_text)
-    SELECT 'genre', id, name, '' FROM genres WHERE song_count > 0
-  `);
-  db.run(sql`
-    INSERT INTO search_fts (entity_type, entity_id, primary_text, secondary_text)
-    SELECT 'playlist', id, name, '' FROM playlists
-  `);
 }
 
 // ─── Roots (iOS folders) ────────────────────────────────────────────────────

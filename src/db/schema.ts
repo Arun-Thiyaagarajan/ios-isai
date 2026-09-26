@@ -147,6 +147,12 @@ export const songs = sqliteTable(
     hasArt: integer('has_art', { mode: 'boolean' }).notNull().default(false),
     artworkKey: text('artwork_key'),
     hasLyrics: integer('has_lyrics', { mode: 'boolean' }).notNull().default(false),
+    composer: text('composer'),
+    comment: text('comment'),
+    copyright: text('copyright'),
+    bpm: integer('bpm'),
+    /** Cover chosen by the user: null = use the album's artwork, "" = removed, else a file URI. */
+    artworkOverride: text('artwork_override'),
     rgTrackGain: real('rg_track_gain'),
     rgTrackPeak: real('rg_track_peak'),
     rgAlbumGain: real('rg_album_gain'),
@@ -309,8 +315,22 @@ export const lyricsCache = sqliteTable('lyrics_cache', {
   songId: integer('song_id')
     .primaryKey()
     .references(() => songs.id, { onDelete: 'cascade' }),
-  source: text('source', { enum: ['embedded', 'sidecar', 'online'] }).notNull(),
+  source: text('source', { enum: ['embedded', 'sidecar', 'online', 'user'] }).notNull(),
   isSynced: integer('is_synced', { mode: 'boolean' }).notNull(),
   content: text('content').notNull(),
+  updatedAt: integer('updated_at').notNull().default(now),
+});
+
+/**
+ * Edits the user made in Isai (Edit Song Info). Only changed fields are stored, as JSON, and they
+ * are re-applied on every scan, so rescanning never undoes an edit. `sourceKey` is
+ * "<source>|<sourceId>", which is how the scanner identifies a file before it has a song id.
+ */
+export const songOverrides = sqliteTable('song_overrides', {
+  songId: integer('song_id')
+    .primaryKey()
+    .references(() => songs.id, { onDelete: 'cascade' }),
+  sourceKey: text('source_key').notNull().unique(),
+  dataJson: text('data_json').notNull(),
   updatedAt: integer('updated_at').notNull().default(now),
 });
