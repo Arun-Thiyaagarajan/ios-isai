@@ -2,6 +2,7 @@ import {
   addToQueue,
   applyOps,
   clearUpNext,
+  insertAt,
   move,
   playNext,
   removeAt,
@@ -157,5 +158,32 @@ describe('queue', () => {
         expect([...q.originalKeys].sort()).toEqual(q.items.map((i) => i.key).sort());
       }
     }
+  });
+
+  it('puts a removed song back where it was (Undo)', () => {
+    const start = startQueue(items('A', 'B', 'C', 'D'), 1, false);
+    const removed = start.items[3];
+    const without = check(start, removeAt(start, 3));
+    const back = check(without, insertAt(without, 3, [removed]));
+    expect(titles(back)).toEqual(['A', 'B', 'C', 'D']);
+    expect(current(back)).toBe('B');
+  });
+
+  it('keeps the playing song when songs go back in front of it', () => {
+    const start = startQueue(items('A', 'B', 'C'), 2, false);
+    const removed = start.items[0];
+    const without = check(start, removeAt(start, 0));
+    const back = check(without, insertAt(without, 0, [removed]));
+    expect(titles(back)).toEqual(['A', 'B', 'C']);
+    expect(current(back)).toBe('C');
+  });
+
+  it('restores a cleared Up Next', () => {
+    const start = startQueue(items('A', 'B', 'C'), 0, true, seeded(3));
+    const upNext = start.items.slice(1);
+    const cleared = check(start, clearUpNext(start));
+    const back = check(cleared, insertAt(cleared, 1, upNext));
+    expect(back.items.map((i) => i.key)).toEqual(start.items.map((i) => i.key));
+    expect([...back.originalKeys!].sort()).toEqual(back.items.map((i) => i.key).sort());
   });
 });

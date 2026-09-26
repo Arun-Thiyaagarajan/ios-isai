@@ -1,10 +1,11 @@
 import {
-  audio,
-  isAudioAvailable,
+  audio as nativeAudio,
+  isAudioAvailable as nativeAudioAvailable,
   type NativeQueueItem,
   type PlaybackStateEvent,
   type TransitionEvent,
 } from '@modules/isai-audio';
+import { File } from 'expo-file-system';
 import { AppState, Platform } from 'react-native';
 
 import { config } from '@/config';
@@ -14,19 +15,24 @@ import { queryKeys } from '@/db/queryKeys';
 import { markRecentlyPlayed, recordPlayEvents } from '@/db/repos/history';
 import {
   getPlayableSongs,
+  getSongArtwork,
   loadSavedQueue,
   saveQueue,
   type PlayableSong,
 } from '@/db/repos/player';
 
 import { effectsForNative, isReplayGainMode, replayGainForItem, sanitizeEqualizer } from '@/features/audio/equalizer';
+import { demoAudio } from '@/features/demo/demoAudio';
+import { isDemoMode } from '@/features/demo/demoMode';
+import { artworkFileMissing, ensureAlbumArtwork } from '@/features/library/artwork';
 import { useSettings } from '@/features/settings/settingsStore';
-import { showToast } from '@/features/shell/toast';
+import { showErrorToast } from '@/features/shell/toast';
 
 import { usePlayerStore, type PlayContext } from './playerStore';
 import {
   addToQueue as addToQueueOp,
   clearUpNext as clearUpNextOp,
+  insertAt as insertAtOp,
   move as moveOp,
   newKey,
   playNext as playNextOp,
@@ -38,6 +44,10 @@ import {
   type QueueItem,
   type RepeatMode,
 } from './queue';
+
+// Expo Go has no native engine: a silent stand-in keeps the player UI working there.
+const audio = !nativeAudioAvailable && isDemoMode ? demoAudio : nativeAudio;
+const isAudioAvailable = nativeAudioAvailable || isDemoMode;
 
 /** Big lists (e.g. all songs) are queued in a window so the queue stays fast. */
 export const MAX_QUEUE = 2000;
@@ -187,16 +197,31 @@ export function addToQueue(songIds: number[]) {
   }
 }
 
-export function removeFromQueue(position: number) {
-  applyChange(removeAtOp(usePlayerStore.getState().queue, position));
+/** Removes one song from the queue. Returns an undo that puts it back, or null if nothing was removed. */
+export function removeFromQueue(position: number): (() => void) | null {
+  const { queue } = usePlayerStore.getState();
+  const item = queue.items[position];
+  const change = removeAtOp(queue, position);
+  if (!item || change.ops.length === 0) return null;
+  const originalAt = queue.originalKeys?.indexOf(item.key);
+  applyChange(change);
+  return () => applyChange(insertAtOp(usePlayerStore.getState().queue, position, [item], originalAt));
 }
 
 export function moveInQueue(from: number, to: number) {
   applyChange(moveOp(usePlayerStore.getState().queue, from, to));
 }
 
-export function clearUpNext() {
-  applyChange(clearUpNextOp(usePlayerStore.getState().queue));
+/** Removes every song after the playing one. Returns an undo that puts them back, or null if there were none. */
+export function clearUpNext(): (() => void) | null {
+  const { queue } = usePlayerStore.getState();
+  const removed = queue.items.slice(queue.index + 1);
+  if (removed.length === 0) return null;
+  applyChange(clearUpNextOp(queue));
+  return () => {
+    const now = usePlayerStore.getState().queue;
+    applyChange(insertAtOp(now, now.index + 1, removed));
+  };
 }
 
 export function toggleShuffle() {
@@ -422,6 +447,60 @@ function restore() {
 
 let started = false;
 
+// ─── Lock screen artwork ────────────────────────────────────────────────────
+
+let artworkCheckedKey: string | null = null;
+
+function fileExists(uri: string): boolean {
+  try {
+    return new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Makes sure the song that just started has current artwork on the lock screen and in the
+ * notification. A song can be queued before its album's thumbnail exists, and thumbnails are
+ * regenerated (with a new file name) when the old file was cleared, so the queued path can be
+ * missing or out of date; this generates or refreshes it and tells the engine.
+ */
+async function syncCurrentArtwork() {
+  const { queue } = usePlayerStore.getState();
+  const item = queue.items[queue.index];
+  if (!item || item.key === artworkCheckedKey) return;
+  artworkCheckedKey = item.key;
+
+  const artwork = getSongArtwork(db, item.songId);
+  if (!artwork) return;
+  let uri: string | null = artwork.override || artwork.albumKey;
+  if (!artwork.override && item.albumId !== null) {
+    if (uri && !fileExists(uri)) {
+      artworkFileMissing(item.albumId); // cleared from the cache: make a new one
+      uri = null;
+    }
+    if (uri === null) {
+      uri = await ensureAlbumArtwork(item.albumId);
+    }
+  }
+  if (!uri || uri === item.artworkUri) return;
+
+  // Every queued copy of this song gets the new picture (the mini player and Now Playing too).
+  const latest = usePlayerStore.getState().queue;
+  usePlayerStore.setState({
+    queue: {
+      ...latest,
+      items: latest.items.map((entry) => (entry.songId === item.songId ? { ...entry, artworkUri: uri } : entry)),
+    },
+  });
+  native(async () => {
+    const engine = audio();
+    if (typeof engine.updateArtwork === 'function') {
+      await engine.updateArtwork(item.key, uri);
+    }
+  });
+}
+
 /** Equalizer, bass boost and levelling mode, from settings to the engine. */
 function applyAudioEffects() {
   const { equalizer, replayGain } = useSettings.getState();
@@ -455,10 +534,17 @@ export function startPlayer() {
   engine.addListener('onError', (event) => {
     usePlayerStore.setState({ lastError: event.message });
     const item = usePlayerStore.getState().queue.items.find((i) => i.key === event.key);
-    showToast(item ? `Couldn’t play “${item.title}”. Skipped.` : 'A song couldn’t be played.');
+    showErrorToast(item ? `Couldn’t play “${item.title}”. Skipped.` : 'A song couldn’t be played.');
   });
   applyLockScreenSetting();
   applyAudioEffects();
+  // Whenever a different song becomes current, check its lock screen artwork.
+  usePlayerStore.subscribe((state, previous) => {
+    const key = state.queue.items[state.queue.index]?.key;
+    if (key && key !== previous.queue.items[previous.queue.index]?.key) {
+      syncCurrentArtwork().catch(() => undefined);
+    }
+  });
   useSettings.subscribe((state, previous) => {
     if (state.lockScreenPlayer !== previous.lockScreenPlayer) {
       applyLockScreenSetting();

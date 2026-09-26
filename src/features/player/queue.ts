@@ -134,6 +134,31 @@ export function removeAt(state: QueueState, position: number): QueueChange {
   };
 }
 
+/**
+ * Puts songs back at `position` (Undo after removing them). `originalAt` is where they were in the
+ * unshuffled order, so turning shuffle off later still finds them in place.
+ */
+export function insertAt(state: QueueState, position: number, newItems: QueueItem[], originalAt?: number): QueueChange {
+  if (newItems.length === 0) {
+    return { state, ops: [] };
+  }
+  if (state.items.length === 0) {
+    return { state: { ...emptyQueue, items: newItems }, ops: [{ type: 'insert', at: 0, items: newItems }] };
+  }
+  // The queue may have changed since: clamp into the list.
+  const at = Math.max(0, Math.min(position, state.items.length));
+  const items = [...state.items.slice(0, at), ...newItems, ...state.items.slice(at)];
+  let originalKeys = state.originalKeys;
+  if (originalKeys) {
+    const pos = Math.max(0, Math.min(originalAt ?? originalKeys.length, originalKeys.length));
+    originalKeys = [...originalKeys.slice(0, pos), ...newItems.map((i) => i.key), ...originalKeys.slice(pos)];
+  }
+  return {
+    state: { ...state, items, index: at <= state.index ? state.index + newItems.length : state.index, originalKeys },
+    ops: [{ type: 'insert', at, items: newItems }],
+  };
+}
+
 /** Moves a song within the queue (e.g. drag to reorder). */
 export function move(state: QueueState, from: number, to: number): QueueChange {
   const last = state.items.length - 1;

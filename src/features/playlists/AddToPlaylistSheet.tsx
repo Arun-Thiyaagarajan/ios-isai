@@ -8,6 +8,7 @@ import { listPlaylistSummaries } from '@/db/repos/browse';
 import { addSongsToPlaylist } from '@/db/repos/playlists';
 import { Icon, ListRow, Text, makeStyles, useTheme } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
+import { showErrorToast, showToast } from '@/features/shell/toast';
 import { formatCount } from '@/lib/format';
 
 /** Pick a playlist to add songs to, or create a new one. */
@@ -20,8 +21,13 @@ export function AddToPlaylistSheet() {
 
   const playlists = useQuery({ queryKey: queryKeys.playlists.list(), queryFn: () => listPlaylistSummaries(db) });
 
-  const addTo = (playlistId: number) => {
-    addSongsToPlaylist(db, playlistId, ids);
+  const addTo = (playlistId: number, name: string) => {
+    try {
+      addSongsToPlaylist(db, playlistId, ids);
+      showToast({ icon: 'addToPlaylist', message: `Added to ${name}` });
+    } catch {
+      showErrorToast('Couldn’t add to playlist');
+    }
     client.invalidateQueries({ queryKey: queryKeys.playlists.all });
     router.back();
   };
@@ -41,7 +47,7 @@ export function AddToPlaylistSheet() {
           key={playlist.id}
           title={playlist.name}
           subtitle={formatCount(playlist.songCount, 'song')}
-          onPress={() => addTo(playlist.id)}
+          onPress={() => addTo(playlist.id, playlist.name)}
           leading={
             <AlbumArtwork
               albumId={playlist.albumId}

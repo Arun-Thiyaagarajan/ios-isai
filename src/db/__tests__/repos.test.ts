@@ -17,6 +17,8 @@ import {
   movePlaylistEntry,
   removePlaylistEntries,
   renamePlaylist,
+  restorePlaylist,
+  restorePlaylistEntries,
   songFingerprint,
 } from '../repos/playlists';
 import { readAllSettings, writeSetting } from '../repos/settings';
@@ -82,6 +84,20 @@ describe('playlists repo', () => {
     expect(listPlaylists(db)[0].name).toBe('Night Drive');
     deletePlaylist(db, playlist.id);
     expect(listPlaylists(db)).toEqual([]);
+  });
+
+  it('undoes removing entries and deleting the playlist', () => {
+    const { db, playlist, titles, entryId } = setup();
+    const removed = removePlaylistEntries(db, playlist.id, [entryId('B'), entryId('D')]);
+    expect(titles()).toEqual(['A', 'C']);
+    restorePlaylistEntries(db, removed);
+    expect(titles()).toEqual(['A', 'B', 'C', 'D']);
+
+    const deleted = deletePlaylist(db, playlist.id)!;
+    expect(listPlaylists(db)).toEqual([]);
+    restorePlaylist(db, deleted);
+    expect(listPlaylists(db)[0]).toMatchObject({ id: playlist.id, name: 'Road Trip', songCount: 4 });
+    expect(titles()).toEqual(['A', 'B', 'C', 'D']);
   });
 
   it('keeps entries of deleted songs so they can be re-linked', () => {

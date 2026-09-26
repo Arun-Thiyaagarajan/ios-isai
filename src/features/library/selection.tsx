@@ -10,7 +10,7 @@ import { setFavorite } from '@/db/repos/favorites';
 import { Icon, Surface, Text, makeStyles, useTheme, type IconName } from '@/design';
 import { addToQueue, playNext, playSongs } from '@/features/player/playerService';
 import type { PlayContext } from '@/features/player/playerStore';
-import { showToast } from '@/features/shell/toast';
+import { showToast, type ToastOptions } from '@/features/shell/toast';
 import { formatCount } from '@/lib/format';
 import { selectionHaptic, tapHaptic } from '@/lib/haptics';
 
@@ -72,10 +72,12 @@ export function SelectionBar({ selection, orderedIds, context, extra }: Props) {
   const ids = orderedIds.filter((id) => selection.selected.has(id));
   const disabled = ids.length === 0;
 
-  const finish = (message?: string) => {
-    if (message) showToast(message);
+  const finish = (toast?: ToastOptions) => {
+    if (toast) showToast(toast);
     selection.done();
   };
+  // Title case, like the rest of the toast wording ("Added 3 Songs to Queue").
+  const songs = formatCount(ids.length, 'Song');
 
   const actions: { icon: IconName; label: string; onPress: () => void; destructive?: boolean }[] = [
     {
@@ -87,8 +89,22 @@ export function SelectionBar({ selection, orderedIds, context, extra }: Props) {
         finish();
       },
     },
-    { icon: 'playNext', label: 'Play Next', onPress: () => { playNext(ids); finish(`${formatCount(ids.length, 'song')} will play next`); } },
-    { icon: 'addToQueue', label: 'Queue', onPress: () => { addToQueue(ids); finish(`Added ${formatCount(ids.length, 'song')} to the queue`); } },
+    {
+      icon: 'playNext',
+      label: 'Play Next',
+      onPress: () => {
+        playNext(ids);
+        finish({ icon: 'playNext', message: ids.length === 1 ? 'Playing Next' : `${songs} Playing Next` });
+      },
+    },
+    {
+      icon: 'addToQueue',
+      label: 'Queue',
+      onPress: () => {
+        addToQueue(ids);
+        finish({ icon: 'addToQueue', message: ids.length === 1 ? 'Added to Queue' : `Added ${songs} to Queue` });
+      },
+    },
     {
       icon: 'addToPlaylist',
       label: 'Playlist',
@@ -103,7 +119,10 @@ export function SelectionBar({ selection, orderedIds, context, extra }: Props) {
       onPress: () => {
         for (const id of ids) setFavorite(db, 'song', id, true);
         client.invalidateQueries({ queryKey: queryKeys.favorites.all });
-        finish(`Added ${formatCount(ids.length, 'song')} to Favorites`);
+        finish({
+          icon: 'favoriteFilled',
+          message: ids.length === 1 ? 'Added to Favorites' : `Added ${songs} to Favorites`,
+        });
       },
     },
   ];

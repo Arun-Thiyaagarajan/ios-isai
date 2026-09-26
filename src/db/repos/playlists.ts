@@ -58,8 +58,28 @@ export function renamePlaylist(db: AppDatabase, playlistId: number, name: string
     .run();
 }
 
-export function deletePlaylist(db: AppDatabase, playlistId: number): void {
-  db.delete(playlists).where(eq(playlists.id, playlistId)).run();
+/** Everything needed to bring a deleted playlist back (Undo). */
+export type DeletedPlaylist = { playlist: Playlist; entries: (typeof playlistSongs.$inferSelect)[] };
+
+/** Deletes a playlist and returns what it held, so it can be restored exactly. */
+export function deletePlaylist(db: AppDatabase, playlistId: number): DeletedPlaylist | null {
+  return db.transaction((tx) => {
+    const playlist = tx.select().from(playlists).where(eq(playlists.id, playlistId)).get();
+    if (!playlist) return null;
+    const entries = tx.select().from(playlistSongs).where(eq(playlistSongs.playlistId, playlistId)).all();
+    tx.delete(playlists).where(eq(playlists.id, playlistId)).run();
+    return { playlist, entries };
+  });
+}
+
+/** Undo for deletePlaylist: same id, name, songs and order. */
+export function restorePlaylist(db: AppDatabase, deleted: DeletedPlaylist): void {
+  db.transaction((tx) => {
+    tx.insert(playlists).values(deleted.playlist).onConflictDoNothing().run();
+    if (deleted.entries.length > 0) {
+      tx.insert(playlistSongs).values(deleted.entries).onConflictDoNothing().run();
+    }
+  });
 }
 
 export type PlaylistEntry = {
@@ -130,15 +150,37 @@ export function addSongsToPlaylist(db: AppDatabase, playlistId: number, songIds:
   });
 }
 
-export function removePlaylistEntries(db: AppDatabase, playlistId: number, entryIds: number[]): void {
+/** Removes entries and returns them, so restorePlaylistEntries can put them back (Undo). */
+export function removePlaylistEntries(
+  db: AppDatabase,
+  playlistId: number,
+  entryIds: number[],
+): (typeof playlistSongs.$inferSelect)[] {
   if (entryIds.length === 0) {
-    return;
+    return [];
   }
-  db.transaction((tx) => {
+  return db.transaction((tx) => {
+    const removed = tx
+      .select()
+      .from(playlistSongs)
+      .where(and(eq(playlistSongs.playlistId, playlistId), inArray(playlistSongs.id, entryIds)))
+      .all();
     tx.delete(playlistSongs)
       .where(and(eq(playlistSongs.playlistId, playlistId), inArray(playlistSongs.id, entryIds)))
       .run();
     tx.update(playlists).set({ updatedAt: Date.now() }).where(eq(playlists.id, playlistId)).run();
+    return removed;
+  });
+}
+
+/** Undo for removePlaylistEntries: the same rows, in their old places. */
+export function restorePlaylistEntries(db: AppDatabase, entries: (typeof playlistSongs.$inferSelect)[]): void {
+  if (entries.length === 0) {
+    return;
+  }
+  db.transaction((tx) => {
+    tx.insert(playlistSongs).values(entries).onConflictDoNothing().run();
+    tx.update(playlists).set({ updatedAt: Date.now() }).where(eq(playlists.id, entries[0].playlistId)).run();
   });
 }
 

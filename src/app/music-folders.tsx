@@ -21,7 +21,7 @@ import {
   addMusicFolder,
   removeMusicFolder,
   requestLibraryAccess,
-  scanLibrary,
+  rescanLibrary,
 } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { formatCount } from '@/lib/format';
@@ -97,7 +97,7 @@ export default function MusicFoldersScreen() {
     setFolderExcluded(db, path, !include);
     client.invalidateQueries({ queryKey: queryKeys.library.folders() });
     // Apply right away: hidden songs disappear, re-enabled ones come back.
-    scanLibrary();
+    rescanLibrary();
   };
 
   const list = folders.data ?? [];
@@ -135,7 +135,7 @@ export default function MusicFoldersScreen() {
           actionLabel="Allow Access"
           onAction={async () => {
             if (await requestLibraryAccess()) {
-              await scanLibrary();
+              await rescanLibrary();
             }
           }}
         />

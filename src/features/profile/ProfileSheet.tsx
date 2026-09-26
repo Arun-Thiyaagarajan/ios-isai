@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+import { useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { config } from '@/config';
@@ -16,19 +17,22 @@ import {
   IconTile,
   IsaiLogo,
   ListRow,
+  Segmented,
   SettingsGroup,
   SwitchRow,
   Text,
   TextField,
   makeStyles,
   themes,
+  useReducedMotion,
   useTheme,
   type IconName,
 } from '@/design';
 import { EQ_PRESETS, sanitizeEqualizer } from '@/features/audio/equalizer';
-import { scanLibrary } from '@/features/library/scanService';
+import { rescanLibrary } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { useSettings, type Settings } from '@/features/settings/settingsStore';
+import { showErrorToast, showToast } from '@/features/shell/toast';
 import { backUpNow, restoreFromBackup } from '@/features/transfer/fileTransfer';
 import { formatCount, formatTimeAgo } from '@/lib/format';
 import { selectionHaptic } from '@/lib/haptics';
@@ -96,6 +100,35 @@ function removeStoredPhoto(uri: string | null) {
   }
 }
 
+/** Seek bar look on Now Playing and Lyrics: Wavy (default) or Straight. */
+function ProgressStyleRow() {
+  const styles = useStyles();
+  const value = useSettings((s) => s.progressStyle);
+  const set = useSettings((s) => s.set);
+  const reducedMotion = useReducedMotion();
+  return (
+    <ListRow
+      title="Progress Bar"
+      subtitle={reducedMotion ? 'Straight while Reduce Motion is on' : undefined}
+      leading={<RowIcon name="progressStyle" />}
+      trailing={
+        <Segmented
+          value={value}
+          choices={[
+            { value: 'wavy', label: 'Wavy' },
+            { value: 'straight', label: 'Straight' },
+          ]}
+          onChange={(next) => {
+            selectionHaptic();
+            set('progressStyle', next);
+          }}
+          style={styles.progressChoice}
+        />
+      }
+    />
+  );
+}
+
 /** Avatar, name, and a one-line library summary. */
 function ProfileHeader() {
   const theme = useTheme();
@@ -103,6 +136,7 @@ function ProfileHeader() {
   const name = useSettings((s) => s.profileName);
   const photo = useSettings((s) => s.profilePhotoUri);
   const set = useSettings((s) => s.set);
+  const nameAtFocus = useRef(name);
 
   const stats = useQuery({ queryKey: queryKeys.library.stats(), queryFn: () => getLibraryStats(db) });
   const playlists = useQuery({ queryKey: queryKeys.playlists.list(), queryFn: () => listPlaylists(db) });
@@ -121,8 +155,9 @@ function ProfileHeader() {
       const kept = await keepPhoto(result.assets[0].uri);
       removeStoredPhoto(photo);
       set('profilePhotoUri', kept);
+      showToast({ icon: 'photo', message: 'Photo Updated' });
     } catch {
-      Alert.alert('Couldn’t use that photo', 'Please try a different one.');
+      showErrorToast('Couldn’t use that photo');
     }
   };
 
@@ -139,6 +174,7 @@ function ProfileHeader() {
         onPress: () => {
           removeStoredPhoto(photo);
           set('profilePhotoUri', null);
+          showToast({ icon: 'photo', message: 'Photo Removed' });
         },
       },
       { text: 'Cancel', style: 'cancel' },
@@ -168,6 +204,15 @@ function ProfileHeader() {
         <TextField
           value={name}
           onChangeText={(text) => set('profileName', text.slice(0, NAME_MAX_LENGTH))}
+          // Saved as you type; confirm once when editing ends, if the name actually changed.
+          onFocus={() => {
+            nameAtFocus.current = name;
+          }}
+          onEndEditing={() => {
+            if (name.trim() !== nameAtFocus.current.trim()) {
+              showToast({ icon: 'person', message: name.trim() ? 'Name Saved' : 'Name Removed' });
+            }
+          }}
           placeholder="Your name (optional)"
           accessibilityLabel="Your name"
           autoCapitalize="words"
@@ -248,7 +293,7 @@ function LibraryRows() {
         title="Rescan Library"
         subtitle={lastScan}
         disabled={scanning}
-        onPress={() => scanLibrary()}
+        onPress={() => rescanLibrary()}
         leading={<RowIcon name="refresh" />}
         trailing={scanning ? <ActivityIndicator color={theme.colors.accent} /> : null}
       />
@@ -341,6 +386,7 @@ export function ProfileSheet() {
         />
         <SettingSwitch setting="showLyricsButton" icon="lyrics" title="Lyrics" subtitle="Show the lyrics button on Now Playing" />
         <SettingSwitch setting="showVolumeSlider" icon="volumeHigh" title="Volume Slider" subtitle="Show a volume control on Now Playing" />
+        <ProgressStyleRow />
       </SettingsGroup>
 
       <LibraryRows />
@@ -388,6 +434,9 @@ export function ProfileSheet() {
 const useStyles = makeStyles((t) => ({
   screen: {
     backgroundColor: t.colors.bgElevated,
+  },
+  progressChoice: {
+    width: 176,
   },
   content: {
     paddingTop: t.spacing.xl,

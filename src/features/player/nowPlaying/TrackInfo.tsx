@@ -7,6 +7,7 @@ import { queryKeys } from '@/db/queryKeys';
 import { getSongInfo } from '@/db/repos/browse';
 import { setFavorite } from '@/db/repos/favorites';
 import { Icon, Marquee, makeStyles, useReducedMotion, useTheme } from '@/design';
+import { showToast } from '@/features/shell/toast';
 
 import type { QueueItem } from '../queue';
 
@@ -49,6 +50,11 @@ function LikeButton({ songId }: { songId: number }) {
     setFavorite(db, 'song', songId, !liked);
     client.invalidateQueries({ queryKey: ['song', songId] });
     client.invalidateQueries({ queryKey: queryKeys.favorites.all });
+    showToast(
+      liked
+        ? { icon: 'favorite', message: 'Removed from Favorites' }
+        : { icon: 'favoriteFilled', message: 'Added to Favorites' },
+    );
     if (!reducedMotion) {
       // Squeeze, then pop back with a little overshoot.
       scale.set(withSequence(withTiming(0.75, { duration: 90 }), withSpring(1, theme.motion.spring.bouncy)));

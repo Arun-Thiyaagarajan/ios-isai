@@ -10,9 +10,12 @@ import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
 import { ensureSearchIndex } from '@/db/repos/search';
 import { EmptyState, ThemeProvider, useTheme } from '@/design';
+import { seedDemoLibrary } from '@/features/demo/demoLibrary';
+import { isDemoMode } from '@/features/demo/demoMode';
 import { startLibraryWatcher } from '@/features/library/scanService';
 import { startPlayer } from '@/features/player/playerService';
 import { useSettings } from '@/features/settings/settingsStore';
+import { RouteMemory } from '@/features/shell/RouteMemory';
 import { hideSplashNow, SplashIntro } from '@/features/shell/SplashIntro';
 import { stackScreenOptions } from '@/features/shell/stackOptions';
 import { ToastHost } from '@/features/shell/toast';
@@ -129,6 +132,7 @@ function RootStack() {
         <Stack.Screen name="edit-song" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
       <ToastHost />
+      <RouteMemory />
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
     </>
   );
@@ -145,6 +149,10 @@ function App() {
   // Reconnect to the player with the last queue (paused), and start the one place that decides
   // when the library is scanned automatically.
   useEffect(() => {
+    // Expo Go can't read music files: fill the library with samples to try the UI.
+    if (isDemoMode) {
+      seedDemoLibrary(db);
+    }
     // After an upgrade the search index may be empty until the next scan; fill it now.
     ensureSearchIndex(db);
     startPlayer();

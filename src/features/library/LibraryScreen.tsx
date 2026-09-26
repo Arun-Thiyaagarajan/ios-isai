@@ -9,7 +9,7 @@ import { EmptyState, Text, makeStyles, useTheme } from '@/design';
 import { TabScreen } from '@/features/shell/TabScreen';
 import { formatCount } from '@/lib/format';
 
-import { addMusicFolder, requestLibraryAccess, scanLibrary } from './scanService';
+import { addMusicFolder, requestLibraryAccess, rescanLibrary } from './scanService';
 import { useScanStore } from './scanStore';
 import { LibraryHome } from './screens/LibraryHome';
 
@@ -48,7 +48,7 @@ function EmptyLibrary() {
         title="Couldn’t scan your music"
         message={error ?? undefined}
         actionLabel="Try Again"
-        onAction={scanLibrary}
+        onAction={rescanLibrary}
       />
     );
   }
@@ -62,7 +62,7 @@ function EmptyLibrary() {
         actionLabel="Allow Access"
         onAction={async () => {
           if (await requestLibraryAccess()) {
-            await scanLibrary();
+            await rescanLibrary();
           }
         }}
       />
@@ -87,7 +87,7 @@ function EmptyLibrary() {
       title="No music found"
       message="Isai couldn’t find any songs on this phone. Sounds shorter than 10 seconds, like ringtones, are skipped."
       actionLabel="Scan Again"
-      onAction={scanLibrary}
+      onAction={rescanLibrary}
     />
   );
 }

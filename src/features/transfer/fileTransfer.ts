@@ -88,7 +88,10 @@ export async function restoreFromBackup(): Promise<void> {
             useSettings.getState().hydrate(db);
             queryClient.invalidateQueries();
             const missing = summary.songsMissing > 0 ? ` ${formatCount(summary.songsMissing, 'song')} aren’t on this phone.` : '';
-            showToast(`Restored ${formatCount(summary.playlists, 'playlist')} and ${formatCount(summary.favorites, 'favorite')}.${missing}`);
+            showToast({
+              icon: 'backup',
+              message: `Restored ${formatCount(summary.playlists, 'playlist')} and ${formatCount(summary.favorites, 'favorite')}.${missing}`,
+            });
           } catch (error) {
             Alert.alert('Couldn’t restore', error instanceof Error ? error.message : 'Please try again.');
           }
@@ -128,10 +131,12 @@ export async function importPlaylistFile(): Promise<number | null> {
   const name = picked.name.replace(/\.m3u8?$/i, '').trim() || 'Imported Playlist';
   const result = importM3u(db, name, entries);
   queryClient.invalidateQueries({ queryKey: ['playlists'] });
-  showToast(
-    result.matched === result.total
-      ? `Imported “${name}” with ${formatCount(result.matched, 'song')}`
-      : `Imported “${name}”: found ${result.matched} of ${formatCount(result.total, 'song')} on this phone`,
-  );
+  showToast({
+    icon: 'importFile',
+    message:
+      result.matched === result.total
+        ? `Imported “${name}” with ${formatCount(result.matched, 'song')}`
+        : `Imported “${name}”: found ${result.matched} of ${formatCount(result.total, 'song')} on this phone`,
+  });
   return result.playlistId;
 }

@@ -8,7 +8,13 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { getPlaylistSummary, listPlaylistTracks, type PlaylistTrack } from '@/db/repos/browse';
-import { deletePlaylist, movePlaylistEntry, removePlaylistEntries } from '@/db/repos/playlists';
+import {
+  deletePlaylist,
+  movePlaylistEntry,
+  removePlaylistEntries,
+  restorePlaylist,
+  restorePlaylistEntries,
+} from '@/db/repos/playlists';
 import { EmptyScreen, makeStyles, Text } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { DragHandle } from '@/features/library/components/DragHandle';
@@ -18,6 +24,7 @@ import { playSongs } from '@/features/player/playerService';
 import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
 import { openSongActions } from '@/features/player/songActions';
 import { headerActions } from '@/features/shell/headerActions';
+import { showToast } from '@/features/shell/toast';
 import { exportPlaylistM3u } from '@/features/transfer/fileTransfer';
 import { formatCount } from '@/lib/format';
 import { selectionHaptic, tapHaptic } from '@/lib/haptics';
@@ -78,9 +85,19 @@ export function PlaylistScreen() {
               text: 'Delete',
               style: 'destructive',
               onPress: () => {
-                deletePlaylist(db, playlistId);
+                const deleted = deletePlaylist(db, playlistId);
                 client.invalidateQueries({ queryKey: queryKeys.playlists.all });
                 router.back();
+                if (deleted) {
+                  showToast({
+                    icon: 'delete',
+                    message: `Deleted ${name}`,
+                    undo: () => {
+                      restorePlaylist(db, deleted);
+                      client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+                    },
+                  });
+                }
               },
             },
           ]),
@@ -186,8 +203,22 @@ export function PlaylistScreen() {
           onPress: (songIds) => {
             // Every copy of a selected song leaves this playlist.
             const chosen = new Set(songIds);
-            removePlaylistEntries(db, playlistId, list.filter((t) => chosen.has(t.id)).map((t) => t.entryId));
+            const removed = removePlaylistEntries(
+              db,
+              playlistId,
+              list.filter((t) => chosen.has(t.id)).map((t) => t.entryId),
+            );
             client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+            const name = summary.data?.name ?? 'Playlist';
+            showToast({
+              icon: 'remove',
+              message:
+                removed.length === 1 ? `Removed from ${name}` : `Removed ${formatCount(removed.length, 'Song')} from ${name}`,
+              undo: () => {
+                restorePlaylistEntries(db, removed);
+                client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+              },
+            });
           },
         }}
       />

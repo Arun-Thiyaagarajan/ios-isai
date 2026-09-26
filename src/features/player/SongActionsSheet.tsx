@@ -4,11 +4,12 @@ import { ScrollView, View } from 'react-native';
 
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
-import { getSongInfo } from '@/db/repos/browse';
+import { getPlaylistSummary, getSongInfo } from '@/db/repos/browse';
 import { setFavorite } from '@/db/repos/favorites';
-import { removePlaylistEntries } from '@/db/repos/playlists';
+import { removePlaylistEntries, restorePlaylistEntries } from '@/db/repos/playlists';
 import { Icon, ListRow, Text, makeStyles, useTheme, type IconName } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
+import { showToast } from '@/features/shell/toast';
 
 import { addToQueue, playNext } from './playerService';
 import { describeSleepTimer, useSleepTimer } from './sleepTimer';
@@ -64,6 +65,7 @@ export function SongActionsSheet() {
       title: 'Play Next',
       onPress: () => {
         playNext([songId]);
+        showToast({ icon: 'playNext', message: 'Playing Next' });
         close();
       },
     },
@@ -72,6 +74,7 @@ export function SongActionsSheet() {
       title: 'Add to Queue',
       onPress: () => {
         addToQueue([songId]);
+        showToast({ icon: 'addToQueue', message: 'Added to Queue' });
         close();
       },
     },
@@ -87,6 +90,11 @@ export function SongActionsSheet() {
         setFavorite(db, 'song', songId, !info.isFavorite);
         client.invalidateQueries({ queryKey: ['song', songId] });
         client.invalidateQueries({ queryKey: queryKeys.favorites.all });
+        showToast(
+          info.isFavorite
+            ? { icon: 'favorite', message: 'Removed from Favorites' }
+            : { icon: 'favoriteFilled', message: 'Added to Favorites' },
+        );
         close();
       },
     },
@@ -109,8 +117,17 @@ export function SongActionsSheet() {
       title: 'Remove from This Playlist',
       destructive: true,
       onPress: () => {
-        removePlaylistEntries(db, playlistId, [Number(params.entryId)]);
+        const name = getPlaylistSummary(db, playlistId)?.name ?? 'Playlist';
+        const removed = removePlaylistEntries(db, playlistId, [Number(params.entryId)]);
         client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+        showToast({
+          icon: 'remove',
+          message: `Removed from ${name}`,
+          undo: () => {
+            restorePlaylistEntries(db, removed);
+            client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+          },
+        });
         close();
       },
     });

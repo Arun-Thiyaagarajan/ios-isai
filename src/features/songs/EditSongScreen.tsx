@@ -154,7 +154,7 @@ function Editor({ data }: { data: SongEditData }) {
       });
       refreshSongInQueue(data.songId);
       await client.invalidateQueries();
-      showToast('Song info saved');
+      showToast({ icon: 'edit', message: 'Song Info Saved' });
       setDone(true);
     } catch (error) {
       setSaving(false);

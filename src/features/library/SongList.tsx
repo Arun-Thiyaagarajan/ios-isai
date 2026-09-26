@@ -19,7 +19,7 @@ import { selectionHaptic } from '@/lib/haptics';
 
 import { TrackRow } from './components/TrackRow';
 import { SelectionBar, useSongSelection } from './selection';
-import { scanLibrary } from './scanService';
+import { rescanLibrary } from './scanService';
 import { useScanStore } from './scanStore';
 import { SORT_LABELS, isAlphabetical, sanitizeSongView } from './viewOptions';
 
@@ -65,7 +65,7 @@ export function SongList({ total }: { total: number }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await scanLibrary();
+    await rescanLibrary();
     setRefreshing(false);
   };
 

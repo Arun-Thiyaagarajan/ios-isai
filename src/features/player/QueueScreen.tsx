@@ -7,6 +7,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { Icon, IconButton, ListRow, Text, makeStyles, useTheme } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { DragHandle } from '@/features/library/components/DragHandle';
+import { showToast } from '@/features/shell/toast';
 import { selectionHaptic, tapHaptic } from '@/lib/haptics';
 
 import { clearUpNext, moveInQueue, removeFromQueue, skipTo, toggleShuffle } from './playerService';
@@ -56,7 +57,10 @@ const QueueRow = memo(function QueueRow({
             <IconButton
               icon="remove"
               label={`Remove ${item.title} from the queue`}
-              onPress={() => removeFromQueue(position)}
+              onPress={() => {
+                const undo = removeFromQueue(position);
+                if (undo) showToast({ icon: 'remove', message: 'Removed from Queue', undo });
+              }}
               size={36}
               iconSize={theme.sizes.icon.md}
             />
@@ -139,13 +143,19 @@ export function QueueScreen() {
                 icon="shuffle"
                 label={queue.shuffle ? 'Shuffle on' : 'Shuffle off'}
                 selected={queue.shuffle}
-                onPress={toggleShuffle}
+                onPress={() => {
+                  toggleShuffle();
+                  showToast({ icon: 'shuffle', message: queue.shuffle ? 'Shuffle Off' : 'Shuffle On' });
+                }}
                 iconSize={theme.sizes.icon.md}
               />
               <IconButton
                 icon="delete"
                 label="Clear Up Next"
-                onPress={clearUpNext}
+                onPress={() => {
+                  const undo = clearUpNext();
+                  if (undo) showToast({ icon: 'delete', message: 'Cleared Up Next', undo });
+                }}
                 disabled={upNext.length === 0}
                 iconSize={theme.sizes.icon.md}
               />

@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler } from 'react-native-reanimated';
 
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
@@ -20,7 +22,7 @@ import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { AlbumTile } from '@/features/library/components/AlbumTile';
 import { TrackRow } from '@/features/library/components/TrackRow';
 import { useBrowse } from '@/features/library/navigation';
-import { scanLibrary } from '@/features/library/scanService';
+import { rescanLibrary } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { playSongs, togglePlayPause } from '@/features/player/playerService';
 import { useCurrentItem, useIsPlaying, type PlayContext } from '@/features/player/playerStore';
@@ -28,6 +30,8 @@ import { openSongActions } from '@/features/player/songActions';
 import { useSettings } from '@/features/settings/settingsStore';
 import { formatCount } from '@/lib/format';
 
+import { pickGreeting } from './greetings';
+import { HomeBrandHeader, homeScroll } from './HomeBrandHeader';
 import { SongTile } from './SongTile';
 
 const TILE = 140;
@@ -37,14 +41,6 @@ const ALL_SONGS: PlayContext = { type: 'songs', name: 'Songs' };
 const FAVORITES: PlayContext = { type: 'favorites', name: 'Favorites' };
 const RECENT: PlayContext = { type: 'recent', name: 'Recently Played' };
 const MOST_PLAYED: PlayContext = { type: 'mostPlayed', name: 'Most Played' };
-
-/** "Good evening", or "Good evening, Arun" when the listener has set a name. */
-function greeting(name: string, hour = new Date().getHours()) {
-  const base =
-    hour < 5 ? 'Late night listening' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const trimmed = name.trim();
-  return trimmed ? `${base}, ${trimmed}` : base;
-}
 
 /** The song that's playing (or paused), with a big play/pause button. Tap to open the player. */
 function ContinueListening() {
@@ -159,9 +155,24 @@ export function HomeScreen() {
   });
   const playlists = useQuery({ queryKey: queryKeys.playlists.list(), queryFn: () => listPlaylistSummaries(db) });
 
+  // A new greeting each time Home opens, and on pull to refresh (never the same one twice in a row).
+  const [greeting, setGreeting] = useState(() => pickGreeting(profileName));
+  // Changing your name in the profile updates the greeting straight away.
+  const [greetedName, setGreetedName] = useState(profileName);
+  if (greetedName !== profileName) {
+    setGreetedName(profileName);
+    setGreeting(pickGreeting(profileName));
+  }
+  const headerHeight = useHeaderHeight();
+  const onScroll = useAnimatedScrollHandler((event) => {
+    // iOS reports the resting position as minus the header inset; count from the top of the content.
+    homeScroll.set(event.contentOffset.y + (event.contentInset?.top ?? 0));
+  });
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await scanLibrary();
+    setGreeting((previous) => pickGreeting(useSettings.getState().profileName, undefined, undefined, previous));
+    await rescanLibrary();
     setRefreshing(false);
   }, []);
 
@@ -186,14 +197,32 @@ export function HomeScreen() {
   const mostIds = mostList.filter((t) => t.isPlayable).map((t) => t.id);
 
   return (
-    <ScrollView
+    <Animated.ScrollView
+      onScroll={onScroll}
+      // Android: the bar floats over the page, so start the content below it.
+      contentContainerStyle={[styles.bottom, Platform.OS === 'android' && { paddingTop: headerHeight }]}
+      scrollEventThrottle={16}
       contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: theme.colors.bg }}
-      contentContainerStyle={styles.bottom}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
+      <Stack.Screen
+        options={{
+          // The top bar is translucent: the page scrolls under a soft blur instead of a solid bar.
+          headerTransparent: true,
+          headerShadowVisible: false,
+          headerBlurEffect: theme.scheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight',
+          // Android has no live blur here; a lightly see-through bar gives the same layered look.
+          headerStyle: Platform.OS === 'android' ? { backgroundColor: `${theme.colors.bg}E6` } : undefined,
+        }}
+      />
       <View style={styles.intro}>
-        {showGreeting ? <Text variant="title2">{greeting(profileName)}</Text> : null}
+        <HomeBrandHeader />
+        {showGreeting ? (
+          <Text variant="title2" style={styles.greeting}>
+            {greeting}
+          </Text>
+        ) : null}
         <Text variant="subhead" color="secondary">
           {formatCount(songCount, 'song')} in your library
         </Text>
@@ -312,7 +341,7 @@ export function HomeScreen() {
           </Carousel>
         </>
       ) : null}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
@@ -323,7 +352,11 @@ const useStyles = makeStyles((t) => ({
   intro: {
     paddingHorizontal: t.gutter,
     paddingTop: t.spacing.sm,
-    gap: t.spacing.xxs,
+    gap: t.spacing.xs,
+  },
+  greeting: {
+    marginTop: t.spacing.sm,
+    fontWeight: '600',
   },
   quickActions: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ import { queryKeys } from '@/db/queryKeys';
 import { getPlaylistSummary } from '@/db/repos/browse';
 import { addSongsToPlaylist, createPlaylist, renamePlaylist } from '@/db/repos/playlists';
 import { Button, Text, TextField, makeStyles, useTheme } from '@/design';
+import { showErrorToast, showToast } from '@/features/shell/toast';
 
 /**
  * Create a playlist (optionally with songs already chosen) or rename one.
@@ -26,14 +27,22 @@ export function PlaylistEditScreen() {
 
   const save = () => {
     if (!trimmed) return;
-    if (renaming) {
-      renamePlaylist(db, playlistId, trimmed);
-    } else {
-      const playlist = createPlaylist(db, trimmed);
-      const songIds = (params.songIds ?? '').split(',').filter(Boolean).map(Number).filter(Number.isFinite);
-      if (songIds.length > 0) {
-        addSongsToPlaylist(db, playlist.id, songIds);
+    try {
+      if (renaming) {
+        renamePlaylist(db, playlistId, trimmed);
+        showToast({ icon: 'edit', message: `Renamed to ${trimmed}` });
+      } else {
+        const playlist = createPlaylist(db, trimmed);
+        const songIds = (params.songIds ?? '').split(',').filter(Boolean).map(Number).filter(Number.isFinite);
+        if (songIds.length > 0) {
+          addSongsToPlaylist(db, playlist.id, songIds);
+          showToast({ icon: 'addToPlaylist', message: `Added to ${trimmed}` });
+        } else {
+          showToast({ icon: 'playlistNew', message: `Created ${trimmed}` });
+        }
       }
+    } catch {
+      showErrorToast(renaming ? 'Couldn’t rename playlist' : 'Couldn’t create playlist');
     }
     client.invalidateQueries({ queryKey: queryKeys.playlists.all });
     router.back();

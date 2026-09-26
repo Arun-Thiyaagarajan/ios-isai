@@ -8,6 +8,7 @@ import {
   ScanContext,
   addRoot,
   beginScan,
+  countSongs,
   finishScan,
   getKnownFiles,
   getLibraryStats,
@@ -26,6 +27,8 @@ import {
 } from '@/db/repos/library';
 import { saveReplayGain, songsNeedingReplayGain } from '@/db/repos/player';
 import { useSettings } from '@/features/settings/settingsStore';
+import { showErrorToast, showToast } from '@/features/shell/toast';
+import { formatCount } from '@/lib/format';
 
 import { folderFileToTrack, iosFolderPath, mediaStoreRowToTrack, type IosRoot } from './mapTracks';
 import { useScanStore } from './scanStore';
@@ -92,6 +95,36 @@ export function scanLibrary(): Promise<void> {
     }
   })();
   return running;
+}
+
+/**
+ * A scan the user asked for (Rescan, pull to refresh, a folder change): same as scanLibrary, then
+ * a toast with what changed, e.g. "Library updated · 12 new songs". Automatic scans stay silent.
+ */
+export async function rescanLibrary(): Promise<void> {
+  if (!isLibraryAvailable) {
+    return;
+  }
+  const before = countSongs(db);
+  await scanLibrary();
+  const { status } = useScanStore.getState();
+  if (status === 'error') {
+    showErrorToast('Couldn’t update your library');
+    return;
+  }
+  if (status !== 'done') {
+    return;
+  }
+  const difference = countSongs(db) - before;
+  showToast({
+    icon: 'refresh',
+    message:
+      difference > 0
+        ? `Library updated · ${formatCount(difference, 'new song')}`
+        : difference < 0
+          ? `Library updated · ${formatCount(-difference, 'song')} removed`
+          : 'Library is up to date',
+  });
 }
 
 let levelling: Promise<void> | null = null;
@@ -334,12 +367,12 @@ export async function addMusicFolder(): Promise<boolean> {
   }
   addRoot(db, { platform: 'ios', displayName: picked.name, bookmark: picked.bookmark });
   queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
-  await scanLibrary();
+  await rescanLibrary();
   return true;
 }
 
 /** Forgets a picked folder; its songs disappear from the library. */
 export async function removeMusicFolder(rootId: number): Promise<void> {
   removeRoot(db, rootId);
-  await scanLibrary();
+  await rescanLibrary();
 }

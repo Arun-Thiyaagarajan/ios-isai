@@ -16,6 +16,7 @@ import {
   type ThemeMode,
   type ThemeName,
 } from '@/design';
+import { showToast } from '@/features/shell/toast';
 import { selectionHaptic } from '@/lib/haptics';
 import { PLAYER_THEMES } from '@/theme/player/themes';
 
@@ -53,6 +54,7 @@ export function AppearanceScreen() {
       set('darkTheme', name as typeof darkTheme);
       if (mode === 'light') set('themeMode', 'dark');
     }
+    showToast({ icon: 'appearance', message: `Theme: ${themes[name].label}` });
   };
 
   const modeNote =
@@ -78,6 +80,9 @@ export function AppearanceScreen() {
               onPress={() => {
                 selectionHaptic();
                 set('themeMode', option.value);
+                if (option.value !== mode) {
+                  showToast({ icon: 'appearance', message: `Appearance: ${option.label}` });
+                }
               }}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}

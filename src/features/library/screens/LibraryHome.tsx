@@ -9,7 +9,7 @@ import { Icon, ListRow, SectionHeader, Text, makeStyles, useTheme, type IconName
 
 import { AlbumTile } from '../components/AlbumTile';
 import { useBrowse } from '../navigation';
-import { scanLibrary } from '../scanService';
+import { rescanLibrary } from '../scanService';
 import { useScanStore } from '../scanStore';
 
 const categories: {
@@ -43,7 +43,7 @@ export function LibraryHome() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await scanLibrary();
+    await rescanLibrary();
     setRefreshing(false);
   }, []);
 
