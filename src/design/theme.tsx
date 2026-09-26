@@ -108,6 +108,20 @@ export function ThemeProvider({ children, themeName = 'midnight', matchSystem = 
   );
 }
 
+/**
+ * Shows part of the screen in a fixed theme (e.g. the dark Now Playing screen inside a light app),
+ * without changing the app's navigation theme or window background.
+ */
+export function ThemeScope({ children, themeName }: { children: ReactNode; themeName: ThemeName }) {
+  const outer = useTheme();
+  const definition = themes[themeName];
+  const theme = useMemo<Theme>(
+    () => ({ ...outer, name: definition.name, scheme: definition.scheme, colors: definition.colors }),
+    [outer, definition],
+  );
+  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+}
+
 export function useTheme(): Theme {
   const theme = useContext(ThemeContext);
   if (!theme) {

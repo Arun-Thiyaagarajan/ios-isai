@@ -50,7 +50,7 @@ function ArtistHeader({
           {formatCount(albums.length, 'album')} · {formatCount(artist.songCount, 'song')}
         </Text>
         <View style={styles.buttons}>
-          <PlayShuffleButtons songIds={songIds} />
+          <PlayShuffleButtons songIds={songIds} context={{ type: 'artist', name: artist.name }} />
         </View>
       </View>
 
@@ -105,7 +105,9 @@ export function ArtistScreen() {
           <TrackRow
             track={item}
             showArtist={false}
-            onPress={item.isPlayable ? () => playSongs(playableIds, playableIds.indexOf(item.id)) : undefined}
+            onPress={item.isPlayable ? () => playSongs(playableIds, playableIds.indexOf(item.id), {
+                    context: { type: 'artist', name: artist.data?.name ?? '' },
+                  }) : undefined}
             onMore={() => openSongActions(item.id)}
           />
         )}

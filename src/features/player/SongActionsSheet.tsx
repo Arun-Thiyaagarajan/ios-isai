@@ -25,7 +25,7 @@ export function SongActionsSheet() {
   const theme = useTheme();
   const styles = useStyles();
   const client = useQueryClient();
-  const params = useLocalSearchParams<{ songId: string; playlistId?: string; entryId?: string }>();
+  const params = useLocalSearchParams<{ songId: string; playlistId?: string; entryId?: string; from?: string }>();
   const songId = Number(params.songId);
 
   const song = useQuery({ queryKey: ['song', songId], queryFn: () => getSongInfo(db, songId) ?? null });
@@ -36,7 +36,16 @@ export function SongActionsSheet() {
   }
 
   const close = () => router.back();
-  const actions: Action[] = [
+  const actions: Action[] = [];
+  if (params.from === 'player') {
+    // Player settings live in the Now Playing "…" menu, above the song's own actions.
+    actions.push({
+      icon: 'appearance',
+      title: 'Player Theme',
+      onPress: () => router.replace('/player-theme'),
+    });
+  }
+  actions.push(
     {
       icon: 'playNext',
       title: 'Play Next',
@@ -68,7 +77,7 @@ export function SongActionsSheet() {
         close();
       },
     },
-  ];
+  );
   actions.push({
     icon: 'edit',
     title: 'Edit Info',

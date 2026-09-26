@@ -8,6 +8,7 @@ import { listMostPlayedTracks, listRecentlyPlayedTracks, type TrackItem } from '
 import { EmptyScreen, makeStyles } from '@/design';
 import { TrackRow } from '@/features/library/components/TrackRow';
 import { playSongs } from '@/features/player/playerService';
+import type { PlayContext } from '@/features/player/playerStore';
 import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
 import { openSongActions } from '@/features/player/songActions';
 import { formatCount } from '@/lib/format';
@@ -18,10 +19,12 @@ function TrackListScreen({
   tracks,
   empty,
   note,
+  context,
 }: {
   tracks: TrackItem[] | undefined;
   empty: { title: string; message: string };
   note?: (track: TrackItem) => string | undefined;
+  context: PlayContext;
 }) {
   const styles = useStyles();
   const list = tracks ?? [];
@@ -37,14 +40,14 @@ function TrackListScreen({
       keyExtractor={(track) => String(track.id)}
       ListHeaderComponent={
         <View style={styles.header}>
-          <PlayShuffleButtons songIds={ids} />
+          <PlayShuffleButtons songIds={ids} context={context} />
         </View>
       }
       renderItem={({ item }) => (
         <TrackRow
           track={item}
           note={note?.(item)}
-          onPress={item.isPlayable ? () => playSongs(ids, ids.indexOf(item.id)) : undefined}
+          onPress={item.isPlayable ? () => playSongs(ids, ids.indexOf(item.id), { context }) : undefined}
           onMore={() => openSongActions(item.id)}
         />
       )}
@@ -63,6 +66,7 @@ export function RecentlyPlayedScreen() {
   return (
     <TrackListScreen
       tracks={tracks.data}
+      context={{ type: 'recent', name: 'Recently Played' }}
       empty={{ title: 'Nothing played yet', message: 'Songs you play will appear here.' }}
     />
   );
@@ -76,6 +80,7 @@ export function MostPlayedScreen() {
   return (
     <TrackListScreen
       tracks={tracks.data}
+      context={{ type: 'mostPlayed', name: 'Most Played' }}
       empty={{ title: 'No plays yet', message: 'Songs you listen to all the way through are counted here.' }}
       note={(track) =>
         'playCount' in track ? `${track.artist} · ${formatCount(track.playCount as number, 'play')}` : undefined

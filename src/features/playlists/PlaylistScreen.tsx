@@ -94,7 +94,7 @@ export function PlaylistScreen() {
               <Text variant="footnote" color="secondary" align="center">
                 {formatCount(summary.data.songCount, 'song')} · {minutes(summary.data.totalDurationMs)}
               </Text>
-              <PlayShuffleButtons songIds={playableIds} />
+              <PlayShuffleButtons songIds={playableIds} context={{ type: 'playlist', name: summary.data.name }} />
             </View>
           ) : null
         }
@@ -112,7 +112,9 @@ export function PlaylistScreen() {
             onPress={
               item.missing || !item.isPlayable
                 ? undefined
-                : () => playSongs(playableIds, playableIds.indexOf(item.id))
+                : () => playSongs(playableIds, playableIds.indexOf(item.id), {
+                    context: { type: 'playlist', name: summary.data?.name ?? '' },
+                  })
             }
             onMore={item.missing ? undefined : () => openSongActions(item.id, { playlistId, entryId: item.entryId })}
           />

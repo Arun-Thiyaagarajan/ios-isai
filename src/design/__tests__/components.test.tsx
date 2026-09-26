@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { Button, IconButton, ListRow, Text, ThemeProvider } from '..';
+import { Button, IconButton, ListRow, Marquee, Text, ThemeProvider } from '..';
 
 function renderThemed(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
@@ -10,6 +10,12 @@ describe('design components', () => {
   it('Text renders its content', async () => {
     await renderThemed(<Text variant="headline">Hello</Text>);
     expect(screen.getByText('Hello')).toBeOnTheScreen();
+  });
+
+  it('Marquee shows short text once, on one line', async () => {
+    await renderThemed(<Marquee variant="playerTitle">Vinmeen Vithaiyil</Marquee>);
+    // The visible copy; the measuring copy is hidden from screen readers.
+    expect(screen.getByText('Vinmeen Vithaiyil')).toBeOnTheScreen();
   });
 
   it('IconButton is announced by its label and fires onPress', async () => {

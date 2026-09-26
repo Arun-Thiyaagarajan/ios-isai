@@ -16,6 +16,11 @@ import { useBrowse } from '../navigation';
 
 type Item = { kind: 'folder'; folder: FolderEntry } | { kind: 'song'; song: TrackItem };
 
+/** Last part of a folder path ("Music/Tamil" → "Tamil"). */
+function folderName(path: string | null): string {
+  return path?.split('/').filter(Boolean).pop() ?? 'Folders';
+}
+
 /** Browse music the way it's stored: folders first, then the songs in this folder. */
 export function FoldersScreen() {
   const theme = useTheme();
@@ -58,7 +63,9 @@ export function FoldersScreen() {
               track={item.song}
               onPress={
                 item.song.isPlayable
-                  ? () => playSongs(folderSongIds, folderSongIds.indexOf(item.song.id))
+                  ? () => playSongs(folderSongIds, folderSongIds.indexOf(item.song.id), {
+                      context: { type: 'folder', name: folderName(current) },
+                    })
                   : undefined
               }
               onMore={() => openSongActions(item.song.id)}

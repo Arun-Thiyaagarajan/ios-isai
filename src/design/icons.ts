@@ -40,6 +40,8 @@ export const icons = {
   queue: { ios: 'list.bullet', android: 'format_list_bulleted' },
   lyrics: { ios: 'quote.bubble', android: 'lyrics' },
   output: { ios: 'airplay.audio', android: 'speaker_group' },
+  volumeLow: { ios: 'speaker.fill', android: 'volume_mute' },
+  volumeHigh: { ios: 'speaker.wave.3.fill', android: 'volume_up' },
   sleepTimer: { ios: 'moon.zzz', android: 'bedtime' },
   equalizer: { ios: 'slider.vertical.3', android: 'equalizer' },
 

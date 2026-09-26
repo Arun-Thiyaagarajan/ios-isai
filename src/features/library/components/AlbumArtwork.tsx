@@ -10,6 +10,7 @@ type Props = {
   shape?: 'rounded' | 'circle';
   placeholderColor?: string | null;
   placeholderIcon?: IconName;
+  radius?: number;
 };
 
 /** Album (or artist) artwork that generates its thumbnail the first time it's shown. */
@@ -20,6 +21,7 @@ export function AlbumArtwork({
   shape,
   placeholderColor,
   placeholderIcon = 'album',
+  radius,
 }: Props) {
   const { uri, onError } = useAlbumArtwork(albumId, artworkKey);
 
@@ -32,6 +34,7 @@ export function AlbumArtwork({
       placeholderIcon={placeholderIcon}
       recyclingKey={albumId === null ? undefined : String(albumId)}
       onError={onError}
+      radius={radius}
     />
   );
 }

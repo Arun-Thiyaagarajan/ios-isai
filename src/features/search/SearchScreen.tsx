@@ -143,7 +143,9 @@ export function SearchScreen() {
               item.track.isPlayable
                 ? () => {
                     remember();
-                    playSongs(item.list, Math.max(0, item.list.indexOf(item.track.id)));
+                    playSongs(item.list, Math.max(0, item.list.indexOf(item.track.id)), {
+                      context: { type: 'search', name: 'Search' },
+                    });
                   }
                 : undefined
             }

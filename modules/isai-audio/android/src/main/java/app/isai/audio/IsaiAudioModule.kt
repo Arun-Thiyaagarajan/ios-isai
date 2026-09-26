@@ -1,6 +1,13 @@
 package app.isai.audio
 
 import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.database.ContentObserver
+import android.media.AudioManager
+import android.media.MediaRouter2
+import android.os.Build
+import android.provider.Settings
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -63,11 +70,16 @@ class IsaiAudioModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("IsaiAudio")
-    Events("onPlaybackState", "onTransition", "onError")
+    Events("onPlaybackState", "onTransition", "onError", "onVolumeChange")
 
-    OnCreate { main.post { connect() } }
+    OnCreate {
+      main.post { connect() }
+      // Volume changes from the hardware buttons or the system panel keep the slider in sync.
+      runCatching { context.contentResolver.registerContentObserver(Settings.System.CONTENT_URI, true, volumeObserver) }
+    }
 
     OnDestroy {
+      runCatching { context.contentResolver.unregisterContentObserver(volumeObserver) }
       main.post {
         main.removeCallbacks(ticker)
         controller?.removeListener(listener)
@@ -158,10 +170,59 @@ class IsaiAudioModule : Module() {
       }
     }.runOnQueue(Queues.MAIN)
 
+    // ─── Output ───────────────────────────────────────────────────────────────
+
+    /** Media volume, 0…1. */
+    Function("getVolume") { currentVolume() }
+
+    AsyncFunction("setVolume") { volume: Double ->
+      val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+      val index = Math.round(volume.coerceIn(0.0, 1.0) * max).toInt()
+      // Can be refused (e.g. in Do Not Disturb); the slider then snaps back on the next update.
+      runCatching { audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, index, 0) }
+      lastVolume = currentVolume()
+    }
+
+    /**
+     * Opens the system's output picker (speaker, Bluetooth, cast). Android 14+ has one for apps;
+     * older versions get the Bluetooth settings instead. Returns false if nothing could be opened.
+     */
+    AsyncFunction("showOutputSwitcher") {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+        MediaRouter2.getInstance(context).showSystemOutputSwitcher()
+      ) {
+        return@AsyncFunction true
+      }
+      val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      runCatching { context.startActivity(intent) }.isSuccess
+    }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("getState") {
       val c = controller ?: return@AsyncFunction null
       state(c) + mapOf("keys" to (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId })
     }.runOnQueue(Queues.MAIN)
+  }
+
+  // ─── Volume ─────────────────────────────────────────────────────────────────
+
+  private val audioManager
+    get() = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+  private var lastVolume = -1.0
+
+  private fun currentVolume(): Double {
+    val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    return if (max > 0) audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / max else 0.0
+  }
+
+  private val volumeObserver = object : ContentObserver(main) {
+    override fun onChange(selfChange: Boolean) {
+      val volume = runCatching { currentVolume() }.getOrNull() ?: return
+      if (volume != lastVolume) {
+        lastVolume = volume
+        sendEvent("onVolumeChange", mapOf("volume" to volume))
+      }
+    }
   }
 
   // ─── Connection ─────────────────────────────────────────────────────────────

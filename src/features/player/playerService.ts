@@ -21,7 +21,7 @@ import {
 import { useSettings } from '@/features/settings/settingsStore';
 import { showToast } from '@/features/shell/toast';
 
-import { usePlayerStore } from './playerStore';
+import { usePlayerStore, type PlayContext } from './playerStore';
 import {
   addToQueue as addToQueueOp,
   clearUpNext as clearUpNextOp,
@@ -121,8 +121,13 @@ function applyChange(change: QueueChange) {
 /**
  * Replaces the queue with these songs and starts playing `startIndex`.
  * With `shuffle`, the chosen song plays first and the rest are shuffled.
+ * `context` names where the songs came from (shown as "Playing from …" on Now Playing).
  */
-export function playSongs(songIds: number[], startIndex = 0, options: { shuffle?: boolean } = {}): boolean {
+export function playSongs(
+  songIds: number[],
+  startIndex = 0,
+  options: { shuffle?: boolean; context?: PlayContext } = {},
+): boolean {
   if (!isAudioAvailable || songIds.length === 0) {
     return false;
   }
@@ -143,7 +148,7 @@ export function playSongs(songIds: number[], startIndex = 0, options: { shuffle?
   const startAt = Math.max(0, items.findIndex((item) => item.songId === startSongId));
   const queue = startQueue(items, options.shuffle ? Math.floor(Math.random() * items.length) : startAt, !!options.shuffle);
 
-  usePlayerStore.setState({ queue, lastError: null });
+  usePlayerStore.setState({ queue, context: options.context ?? null, lastError: null });
   native(() => audio().setQueue(queue.items.map(toNative), queue.index, 0, true));
   scheduleSave();
   return true;

@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import UIKit
 
 /// Bridges `PlaybackEngine` to JS. Every call runs on the main thread, where the engine lives.
 public class IsaiAudioModule: Module {
@@ -40,6 +41,17 @@ public class IsaiAudioModule: Module {
     AsyncFunction("skipToPrevious") { self.engine.skipToPrevious() }.runOnQueue(.main)
     AsyncFunction("skipTo") { (index: Int) in self.engine.skip(to: index) }.runOnQueue(.main)
     AsyncFunction("setRepeatMode") { (mode: String) in self.engine.setRepeat(mode) }.runOnQueue(.main)
+
+    // Output controls for Now Playing: the system volume slider and the AirPlay/Bluetooth picker.
+    View(IsaiVolumeView.self) {
+      Prop("fillColor") { (view: IsaiVolumeView, color: UIColor) in view.fillColor = color }
+      Prop("trackColor") { (view: IsaiVolumeView, color: UIColor) in view.trackColor = color }
+    }
+
+    View(IsaiRoutePickerView.self) {
+      Prop("buttonColor") { (view: IsaiRoutePickerView, color: UIColor) in view.buttonColor = color }
+      Prop("activeColor") { (view: IsaiRoutePickerView, color: UIColor) in view.activeColor = color }
+    }
 
     AsyncFunction("getState") { () -> [String: Any] in
       var state = self.engine.state()

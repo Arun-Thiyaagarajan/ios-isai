@@ -247,6 +247,8 @@ export const typography = {
   display: { fontSize: 34, lineHeight: 41, fontWeight: '700', letterSpacing: 0.4, maxScale: 1.3 },
   title1: { fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: 0.36, maxScale: 1.4 },
   title2: { fontSize: 22, lineHeight: 28, fontWeight: '700', letterSpacing: 0.35, maxScale: 1.5 },
+  /** Song title on Now Playing. Tall line height so Tamil and other tall scripts never clip. */
+  playerTitle: { fontSize: 24, lineHeight: 32, fontWeight: '600', letterSpacing: 0.2, maxScale: 1.3 },
   headline: { fontSize: 17, lineHeight: 22, fontWeight: '600', letterSpacing: -0.4, maxScale: 1.6 },
   body: { fontSize: 17, lineHeight: 22, fontWeight: '400', letterSpacing: -0.4, maxScale: 1.6 },
   callout: { fontSize: 16, lineHeight: 21, fontWeight: '400', letterSpacing: -0.3, maxScale: 1.6 },
@@ -291,6 +293,8 @@ export const motion = {
   spring: {
     snappy: { damping: 20, stiffness: 300, mass: 1 },
     gentle: { damping: 26, stiffness: 180, mass: 1 },
+    /** A little overshoot, for playful feedback like the like-button pop. */
+    bouncy: { damping: 9, stiffness: 320, mass: 0.8 },
   },
   pressedOpacity: 0.6,
   pressedScale: 0.96,

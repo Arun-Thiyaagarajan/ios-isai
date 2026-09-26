@@ -8,8 +8,11 @@ import { listFavoriteSongs } from '@/db/repos/browse';
 import { EmptyScreen, makeStyles } from '@/design';
 import { TrackRow } from '@/features/library/components/TrackRow';
 import { playSongs } from '@/features/player/playerService';
+import type { PlayContext } from '@/features/player/playerStore';
 import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
 import { openSongActions } from '@/features/player/songActions';
+
+const FAVORITES: PlayContext = { type: 'favorites', name: 'Favorites' };
 
 export function FavoritesScreen() {
   const styles = useStyles();
@@ -33,13 +36,13 @@ export function FavoritesScreen() {
       keyExtractor={(song) => String(song.id)}
       ListHeaderComponent={
         <View style={styles.header}>
-          <PlayShuffleButtons songIds={ids} />
+          <PlayShuffleButtons songIds={ids} context={FAVORITES} />
         </View>
       }
       renderItem={({ item }) => (
         <TrackRow
           track={item}
-          onPress={item.isPlayable ? () => playSongs(ids, ids.indexOf(item.id)) : undefined}
+          onPress={item.isPlayable ? () => playSongs(ids, ids.indexOf(item.id), { context: FAVORITES }) : undefined}
           onMore={() => openSongActions(item.id)}
         />
       )}

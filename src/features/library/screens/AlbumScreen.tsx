@@ -85,7 +85,7 @@ function AlbumHeader({ album, songIds }: { album: AlbumDetail; songIds: number[]
         {meta}
       </Text>
       <View style={styles.buttons}>
-        <PlayShuffleButtons songIds={songIds} />
+        <PlayShuffleButtons songIds={songIds} context={{ type: 'album', name: album.title }} />
       </View>
     </View>
   );
@@ -131,7 +131,9 @@ export function AlbumScreen() {
               showArtist={variousArtists}
               onPress={
                 item.track.isPlayable
-                  ? () => playSongs(playableIds, playableIds.indexOf(item.track.id))
+                  ? () => playSongs(playableIds, playableIds.indexOf(item.track.id), {
+                      context: { type: 'album', name: album.data?.title ?? '' },
+                    })
                   : undefined
               }
               onMore={() => openSongActions(item.track.id)}

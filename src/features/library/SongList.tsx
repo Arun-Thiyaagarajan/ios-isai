@@ -9,6 +9,7 @@ import { listSongs } from '@/db/repos/browse';
 import { listSongIds } from '@/db/repos/player';
 import { Button, Text, makeStyles, useTheme } from '@/design';
 import { playSongs } from '@/features/player/playerService';
+import type { PlayContext } from '@/features/player/playerStore';
 import { openSongActions } from '@/features/player/songActions';
 import { formatCount } from '@/lib/format';
 
@@ -19,6 +20,8 @@ import { useScanStore } from './scanStore';
 const PAGE_SIZE = 200;
 
 /** All songs, A–Z, loaded 200 at a time as you scroll. */
+const ALL_SONGS: PlayContext = { type: 'songs', name: 'Songs' };
+
 export function SongList({ total }: { total: number }) {
   const theme = useTheme();
   const styles = useStyles();
@@ -48,7 +51,7 @@ export function SongList({ total }: { total: number }) {
       renderItem={({ item, index }) => (
         <TrackRow
           track={item}
-          onPress={item.isPlayable ? () => playSongs(listSongIds(db), index) : undefined}
+          onPress={item.isPlayable ? () => playSongs(listSongIds(db), index, { context: ALL_SONGS }) : undefined}
           onMore={() => openSongActions(item.id)}
         />
       )}
@@ -58,7 +61,7 @@ export function SongList({ total }: { total: number }) {
             label="Shuffle All"
             icon="shuffle"
             variant="secondary"
-            onPress={() => playSongs(listSongIds(db), 0, { shuffle: true })}
+            onPress={() => playSongs(listSongIds(db), 0, { shuffle: true, context: ALL_SONGS })}
           />
           <Text variant="footnote" color="secondary">
             {formatCount(total, 'song')}

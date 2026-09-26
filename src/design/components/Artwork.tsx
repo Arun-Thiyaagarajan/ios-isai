@@ -18,6 +18,8 @@ export type ArtworkProps = {
   recyclingKey?: string;
   /** Called when the image file can't be loaded (e.g. the OS cleared the cache). */
   onError?: () => void;
+  /** Corner radius; by default it follows the size. */
+  radius?: number;
 };
 
 export function Artwork({
@@ -28,10 +30,12 @@ export function Artwork({
   placeholderIcon = 'song',
   recyclingKey,
   onError,
+  radius,
 }: ArtworkProps) {
   const theme = useTheme();
   const borderRadius =
-    shape === 'circle' ? size / 2 : size >= 200 ? theme.radius.lg : size >= 96 ? theme.radius.md : theme.radius.sm;
+    radius ??
+    (shape === 'circle' ? size / 2 : size >= 200 ? theme.radius.lg : size >= 96 ? theme.radius.md : theme.radius.sm);
 
   return (
     <View

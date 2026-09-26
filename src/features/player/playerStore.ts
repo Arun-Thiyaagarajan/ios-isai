@@ -12,8 +12,16 @@ export type PlaybackStatus = {
   timestamp: number;
 };
 
+/** Where the queue was started from, shown as "Playing from …" on Now Playing. */
+export type PlayContext = {
+  type: 'album' | 'artist' | 'genre' | 'playlist' | 'folder' | 'favorites' | 'songs' | 'recent' | 'mostPlayed' | 'search';
+  name: string;
+};
+
 type PlayerState = {
   queue: QueueState;
+  /** Null when unknown (e.g. a restored queue); the album name is shown instead. */
+  context: PlayContext | null;
   repeat: RepeatMode;
   status: PlaybackStatus;
   /** Last playback problem, shown briefly to the user. */
@@ -22,6 +30,7 @@ type PlayerState = {
 
 export const usePlayerStore = create<PlayerState>()(() => ({
   queue: emptyQueue,
+  context: null,
   repeat: 'off',
   status: { isPlaying: false, isBuffering: false, ended: false, positionMs: 0, durationMs: 0, timestamp: 0 },
   lastError: null,

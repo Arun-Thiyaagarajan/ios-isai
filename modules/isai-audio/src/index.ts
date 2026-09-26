@@ -1,4 +1,6 @@
-import { requireOptionalNativeModule } from 'expo';
+import { requireNativeView, requireOptionalNativeModule } from 'expo';
+import type { ComponentType } from 'react';
+import type { ColorValue, ViewProps } from 'react-native';
 
 type EventSubscription = { remove(): void };
 
@@ -49,6 +51,8 @@ type Events = {
   onPlaybackState: (event: PlaybackStateEvent) => void;
   onTransition: (event: TransitionEvent) => void;
   onError: (event: PlaybackErrorEvent) => void;
+  /** Android: the media volume changed (buttons, system panel). */
+  onVolumeChange: (event: { volume: number }) => void;
 };
 
 type IsaiAudioModule = {
@@ -64,6 +68,11 @@ type IsaiAudioModule = {
   skipTo(index: number): Promise<void>;
   setRepeatMode(mode: NativeRepeatMode): Promise<void>;
   getState(): Promise<(PlaybackStateEvent & { keys: string[] }) | null>;
+  /** Android only: media volume 0…1. (iOS changes volume through `VolumeView`.) */
+  getVolume?(): number;
+  setVolume?(volume: number): Promise<void>;
+  /** Android only: opens the system output picker; false if none could be shown. */
+  showOutputSwitcher?(): Promise<boolean>;
   addListener<E extends keyof Events>(event: E, listener: Events[E]): EventSubscription;
 };
 
@@ -78,3 +87,27 @@ export function audio(): IsaiAudioModule {
   }
   return native;
 }
+
+// ─── Output views (iOS) ──────────────────────────────────────────────────────
+
+declare const globalThis: {
+  expo?: { getViewConfig?(moduleName: string, viewName?: string): object | null };
+};
+
+/** Only builds made after the view was added have it; older ones fall back gracefully. */
+function hasNativeView(name: string): boolean {
+  return native != null && globalThis.expo?.getViewConfig?.('IsaiAudio', name) != null;
+}
+
+export type VolumeViewProps = ViewProps & { fillColor?: ColorValue; trackColor?: ColorValue };
+export type RoutePickerViewProps = ViewProps & { buttonColor?: ColorValue; activeColor?: ColorValue };
+
+/** iOS: the system volume slider (the only way apps may change the iPhone's volume). */
+export const VolumeView: ComponentType<VolumeViewProps> | null = hasNativeView('IsaiVolumeView')
+  ? requireNativeView<VolumeViewProps>('IsaiAudio', 'IsaiVolumeView')
+  : null;
+
+/** iOS: the AirPlay / Bluetooth output picker button. */
+export const RoutePickerView: ComponentType<RoutePickerViewProps> | null = hasNativeView('IsaiRoutePickerView')
+  ? requireNativeView<RoutePickerViewProps>('IsaiAudio', 'IsaiRoutePickerView')
+  : null;

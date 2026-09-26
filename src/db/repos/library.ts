@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 
+import { cleanMetadata } from '@/lib/cleanMetadata';
 import { normalizeKey, sortKey } from '@/lib/normalize';
 
 import {
@@ -207,6 +208,17 @@ function ensureFolder(tx: Tx, ctx: ScanContext, path: string): number | null {
   return row.id;
 }
 
+/** The scanned track with junk removed from its names. */
+function cleanTags(track: ScannedTrack): ScannedTrack {
+  return {
+    ...track,
+    title: cleanMetadata(track.title),
+    artist: cleanMetadata(track.artist),
+    album: cleanMetadata(track.album),
+    albumArtist: cleanMetadata(track.albumArtist),
+  };
+}
+
 /** Writes one batch of scanned files (insert or update) in a single transaction. */
 export function upsertTracks(db: AppDatabase, ctx: ScanContext, tracks: ScannedTrack[]): void {
   if (tracks.length === 0) {
@@ -215,10 +227,12 @@ export function upsertTracks(db: AppDatabase, ctx: ScanContext, tracks: ScannedT
   db.transaction((tx) => {
     ctx.overrides ??= loadOverrides(tx);
     for (const scanned of tracks) {
-      // The user's edits (Edit Song Info) win over the file's tags, on every scan.
+      // Download-site junk ("- MassTamilan.com") is removed first; the user's edits (Edit Song Info)
+      // are applied after it, so they win over the file's tags on every scan.
+      const cleaned = cleanTags(scanned);
       const override = ctx.overrides.get(sourceKey(scanned.source, scanned.sourceId));
-      const track = override ? applyOverride(scanned, override) : scanned;
-      const title = track.title?.trim() || stripExtension(track.fileName);
+      const track = override ? applyOverride(cleaned, override) : cleaned;
+      const title = track.title?.trim() || cleanMetadata(stripExtension(track.fileName));
       const artistName = track.artist?.trim() || UNKNOWN_ARTIST;
       const albumTitle = track.album?.trim() || UNKNOWN_ALBUM;
       const albumArtistName = track.albumArtist?.trim() || null;
@@ -532,6 +546,25 @@ export function setLastScanAt(db: AppDatabase, at: number): void {
   db.insert(scanState)
     .values({ key: 'lastScanAt', value: String(at) })
     .onConflictDoUpdate({ target: scanState.key, set: { value: String(at) } })
+    .run();
+}
+
+/**
+ * Bumped whenever the way tags are cleaned up changes (e.g. `cleanMetadata`), so the next scan
+ * re-reads every file once instead of skipping unchanged ones.
+ */
+export const TAG_RULES_VERSION = 1;
+
+export function needsTagRefresh(db: AppDatabase): boolean {
+  const row = db.select().from(scanState).where(eq(scanState.key, 'tagRulesVersion')).get();
+  return Number(row?.value ?? 0) < TAG_RULES_VERSION;
+}
+
+export function markTagsRefreshed(db: AppDatabase): void {
+  const value = String(TAG_RULES_VERSION);
+  db.insert(scanState)
+    .values({ key: 'tagRulesVersion', value })
+    .onConflictDoUpdate({ target: scanState.key, set: { value } })
     .run();
 }
 

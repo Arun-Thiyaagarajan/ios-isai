@@ -40,7 +40,7 @@ export function GenreScreen() {
         keyExtractor={(song) => String(song.id)}
         ListHeaderComponent={
           <View style={styles.header}>
-            <PlayShuffleButtons songIds={playableIds} />
+            <PlayShuffleButtons songIds={playableIds} context={{ type: 'genre', name: genre.data?.name ?? '' }} />
             <Text variant="footnote" color="secondary">
               {formatCount(songs.data?.length ?? 0, 'song')}
             </Text>
@@ -49,7 +49,9 @@ export function GenreScreen() {
         renderItem={({ item }) => (
           <TrackRow
             track={item}
-            onPress={item.isPlayable ? () => playSongs(playableIds, playableIds.indexOf(item.id)) : undefined}
+            onPress={item.isPlayable ? () => playSongs(playableIds, playableIds.indexOf(item.id), {
+                    context: { type: 'genre', name: genre.data?.name ?? '' },
+                  }) : undefined}
             onMore={() => openSongActions(item.id)}
           />
         )}

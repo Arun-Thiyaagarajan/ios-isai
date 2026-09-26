@@ -11,6 +11,8 @@ import {
   getLibraryStats,
   isPathExcluded,
   listMusicFolders,
+  markTagsRefreshed,
+  needsTagRefresh,
   setFolderExcluded,
   setLastScanAt,
   touchSongs,
@@ -93,6 +95,28 @@ describe('library scanning', () => {
       artist: 'Unknown Artist',
       album: 'Unknown Album',
     });
+  });
+
+  it('removes download-site junk from names, including file-name titles', () => {
+    const db = createTestDb();
+    scan(db, [
+      track({
+        title: 'Vinmeen Vithaiyil - MassTamilan.com',
+        artist: 'Abhay Jodhpurkar, Saindhavi - MassTamilan.com',
+        album: 'Thegidi - MassTamilan.com',
+      }),
+      track({ sourceId: '2', uri: 'content://media/2', title: null, fileName: 'Megham [Starmusiq].mp3' }),
+    ]);
+    const titles = listSongs(db, 0, 10).map((s) => [s.title, s.artist, s.album]);
+    expect(titles).toContainEqual(['Vinmeen Vithaiyil', 'Abhay Jodhpurkar, Saindhavi', 'Thegidi']);
+    expect(titles.map((t) => t[0])).toContain('Megham');
+  });
+
+  it('asks for one full tag re-read after the clean-up rules change', () => {
+    const db = createTestDb();
+    expect(needsTagRefresh(db)).toBe(true);
+    markTagsRefreshed(db);
+    expect(needsTagRefresh(db)).toBe(false);
   });
 
   it('merges artist spellings that differ only by case or accents', () => {

@@ -22,7 +22,7 @@ import { useBrowse } from '@/features/library/navigation';
 import { scanLibrary } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { playSongs, togglePlayPause } from '@/features/player/playerService';
-import { useCurrentItem, useIsPlaying } from '@/features/player/playerStore';
+import { useCurrentItem, useIsPlaying, type PlayContext } from '@/features/player/playerStore';
 import { openSongActions } from '@/features/player/songActions';
 import { useSettings } from '@/features/settings/settingsStore';
 import { formatCount } from '@/lib/format';
@@ -31,6 +31,11 @@ import { SongTile } from './SongTile';
 
 const TILE = 140;
 const CAROUSEL_LIMIT = 15;
+
+const ALL_SONGS: PlayContext = { type: 'songs', name: 'Songs' };
+const FAVORITES: PlayContext = { type: 'favorites', name: 'Favorites' };
+const RECENT: PlayContext = { type: 'recent', name: 'Recently Played' };
+const MOST_PLAYED: PlayContext = { type: 'mostPlayed', name: 'Most Played' };
 
 function greeting(hour = new Date().getHours()) {
   if (hour < 5) return 'Late night listening';
@@ -159,7 +164,7 @@ export function HomeScreen() {
           label="Shuffle All"
           icon="shuffle"
           fill
-          onPress={() => playSongs(listSongIds(db), 0, { shuffle: true })}
+          onPress={() => playSongs(listSongIds(db), 0, { shuffle: true, context: ALL_SONGS })}
         />
         {favoriteIds.length > 0 ? (
           <Button
@@ -167,7 +172,7 @@ export function HomeScreen() {
             icon="favoriteFilled"
             variant="secondary"
             fill
-            onPress={() => playSongs(favoriteIds, 0, { shuffle: true })}
+            onPress={() => playSongs(favoriteIds, 0, { shuffle: true, context: FAVORITES })}
           />
         ) : null}
       </View>
@@ -183,7 +188,7 @@ export function HomeScreen() {
                 key={track.id}
                 track={track}
                 width={TILE}
-                onPress={() => playSongs(recentIds, Math.max(0, recentIds.indexOf(track.id)))}
+                onPress={() => playSongs(recentIds, Math.max(0, recentIds.indexOf(track.id)), { context: RECENT })}
                 onLongPress={() => openSongActions(track.id)}
               />
             ))}
@@ -210,7 +215,7 @@ export function HomeScreen() {
               key={track.id}
               track={track}
               note={`${track.artist} · ${formatCount(track.playCount, 'play')}`}
-              onPress={track.isPlayable ? () => playSongs(mostIds, mostIds.indexOf(track.id)) : undefined}
+              onPress={track.isPlayable ? () => playSongs(mostIds, mostIds.indexOf(track.id), { context: MOST_PLAYED }) : undefined}
               onMore={() => openSongActions(track.id)}
             />
           ))}
@@ -258,7 +263,7 @@ export function HomeScreen() {
                 key={track.id}
                 track={track}
                 width={TILE}
-                onPress={() => playSongs(favoriteIds, Math.max(0, favoriteIds.indexOf(track.id)))}
+                onPress={() => playSongs(favoriteIds, Math.max(0, favoriteIds.indexOf(track.id)), { context: FAVORITES })}
                 onLongPress={() => openSongActions(track.id)}
               />
             ))}

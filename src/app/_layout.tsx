@@ -3,6 +3,8 @@ import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
@@ -58,6 +60,24 @@ function RootStack() {
             sheetGrabberVisible: true,
           }}
         />
+        <Stack.Screen
+          name="lyrics"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.6, 1],
+            sheetGrabberVisible: true,
+          }}
+        />
+        <Stack.Screen
+          name="player-theme"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.6, 1],
+            sheetGrabberVisible: true,
+          }}
+        />
         <Stack.Screen name="playlist-edit" options={{ presentation: 'modal', title: 'New Playlist' }} />
         <Stack.Screen name="edit-song" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
@@ -86,13 +106,15 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider themeName={themeName} matchSystem={matchSystem}>
-        <RootStack />
-        {/* Launch animation, on top of the first screen; removes itself when done. */}
-        <SplashIntro />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider themeName={themeName} matchSystem={matchSystem}>
+          <RootStack />
+          {/* Launch animation, on top of the first screen; removes itself when done. */}
+          <SplashIntro />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -119,3 +141,9 @@ export default function RootLayout() {
 
   return <App />;
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

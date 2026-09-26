@@ -10,6 +10,8 @@ import {
   beginScan,
   finishScan,
   getKnownFiles,
+  markTagsRefreshed,
+  needsTagRefresh,
   removeRoot,
   isPathExcluded,
   listExcludedPaths,
@@ -136,6 +138,8 @@ async function scanIos(): Promise<'done'> {
   const scope: ScanScope = { sources: ['documents'], rootIds: [] };
   const unavailable: string[] = [];
   let found = 0;
+  // After the tag clean-up rules change, every file is read again once so old names get fixed.
+  const refreshAll = needsTagRefresh(db);
 
   const roots: { ref: string; root: IosRoot }[] = [
     { ref: 'documents', root: { kind: 'documents', name: DOCUMENTS_NAME } },
@@ -167,7 +171,7 @@ async function scanIos(): Promise<'done'> {
       updateRootBookmark(db, rootId, listing.refreshedBookmark);
     }
 
-    const known = getKnownFiles(db, source, rootId);
+    const known = refreshAll ? new Map<string, never>() : getKnownFiles(db, source, rootId);
     const idFor = (path: string) => (rootId === null ? path : `${rootId}/${path}`);
     const unchanged: string[] = [];
     const included = listing.files.filter(
@@ -210,6 +214,9 @@ async function scanIos(): Promise<'done'> {
   setProgress(found, 'Organizing albums and artists');
   await yieldToUi();
   finishScan(db, generation, scope);
+  if (refreshAll && unavailable.length === 0) {
+    markTagsRefreshed(db);
+  }
   useScanStore.setState({ unavailableFolders: unavailable });
   return 'done';
 }

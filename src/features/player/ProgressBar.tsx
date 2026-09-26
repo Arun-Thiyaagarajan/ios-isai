@@ -1,82 +1,154 @@
-import { useState } from 'react';
-import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, type LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useAnimatedStyle,
+  useFrameCallback,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
-import { Text, makeStyles, useTheme } from '@/design';
+import { Text, makeStyles, useReducedMotion, useTheme } from '@/design';
 import { formatDuration } from '@/lib/format';
 
 import { seekTo } from './playerService';
+import { usePlayerStore } from './playerStore';
 import { useProgress } from './useProgress';
 
 /** Taller touch area than the visible track, so it's easy to grab. */
-const TOUCH_HEIGHT = 32;
+const TOUCH_HEIGHT = 36;
+const TRACK_HEIGHT = 4;
+const TRACK_HEIGHT_SCRUBBING = 8;
+const THUMB_SIZE = 16;
 
 /**
- * Seek bar: tap anywhere or drag to seek. While dragging, the bar follows the finger and the
- * times show the target; the engine only seeks when the finger lifts.
+ * Seek bar. A thin 4pt track that thickens to 8pt and shows a thumb while you touch it.
+ * Tap anywhere or drag to seek; the engine only seeks when the finger lifts.
+ *
+ * The fill moves on the UI thread every frame (from the engine's last reported position),
+ * so it stays smooth without re-rendering React. The time labels update a few times a second.
  */
 export function ProgressBar() {
   const theme = useTheme();
-  const local = useStyles();
-  const { positionMs, durationMs } = useProgress();
-  const [width, setWidth] = useState(0);
-  const [dragFraction, setDragFraction] = useState<number | null>(null);
+  const styles = useStyles();
+  const reducedMotion = useReducedMotion();
+  const status = usePlayerStore((s) => s.status);
+  const { positionMs, durationMs } = useProgress(500);
+  const [scrubMs, setScrubMs] = useState<number | null>(null);
 
-  // Handlers only use the finger's position, so rebuilding them each render is safe mid-drag.
-  const fractionAt = (x: number) => (width > 0 ? Math.min(1, Math.max(0, x / width)) : 0);
-  const responder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    // Keep the gesture even if the sheet around it would like to take over.
-    onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: (event) => setDragFraction(fractionAt(event.nativeEvent.locationX)),
-    onPanResponderMove: (event) => setDragFraction(fractionAt(event.nativeEvent.locationX)),
-    onPanResponderRelease: (event) => {
-      const fraction = fractionAt(event.nativeEvent.locationX);
-      setDragFraction(null);
-      if (durationMs > 0) {
-        seekTo(fraction * durationMs);
+  const width = useSharedValue(0);
+  /** 0…1 while the finger is down, otherwise -1. */
+  const scrub = useSharedValue(-1);
+  /** 0 idle → 1 scrubbing: drives the track height and the thumb. */
+  const active = useSharedValue(0);
+  const live = useSharedValue(0);
+  // The engine's last report, copied to the UI thread; the frame callback extrapolates from it.
+  const anchor = useSharedValue({ positionMs: 0, durationMs: 0, timestamp: 0, playing: false });
+
+  useEffect(() => {
+    anchor.set({
+      positionMs: status.positionMs,
+      durationMs: status.durationMs,
+      timestamp: status.timestamp,
+      playing: status.isPlaying,
+    });
+    if (!status.isPlaying && status.durationMs > 0) {
+      live.set(Math.min(1, status.positionMs / status.durationMs));
+    }
+  }, [status, anchor, live]);
+
+  const ticker = useFrameCallback(() => {
+    const a = anchor.get();
+    if (a.durationMs <= 0) {
+      live.set(0);
+      return;
+    }
+    const elapsed = a.playing ? Math.max(0, Date.now() - a.timestamp) : 0;
+    live.set(Math.min(1, (a.positionMs + elapsed) / a.durationMs));
+  }, false);
+
+  // Only tick while playing: a paused bar costs nothing.
+  useEffect(() => {
+    ticker.setActive(status.isPlaying);
+  }, [ticker, status.isPlaying]);
+
+  const duration = reducedMotion ? 0 : theme.motion.duration.fast;
+
+  const scrubGesture = Gesture.Pan()
+    // Starts on touch-down, so a simple tap seeks too.
+    .minDistance(0)
+    .shouldCancelWhenOutside(false)
+    .onBegin((e) => {
+      const fraction = width.get() > 0 ? Math.min(1, Math.max(0, e.x / width.get())) : 0;
+      scrub.set(fraction);
+      active.set(withTiming(1, { duration }));
+      scheduleOnRN(setScrubMs, fraction * durationMs);
+    })
+    .onUpdate((e) => {
+      const fraction = width.get() > 0 ? Math.min(1, Math.max(0, e.x / width.get())) : 0;
+      scrub.set(fraction);
+      scheduleOnRN(setScrubMs, fraction * durationMs);
+    })
+    .onEnd(() => {
+      if (scrub.get() >= 0 && durationMs > 0) {
+        const target = scrub.get() * durationMs;
+        // Show the new position right away instead of snapping back until the engine reports.
+        live.set(scrub.get());
+        scheduleOnRN(seekTo, target);
       }
-    },
-    onPanResponderTerminate: () => setDragFraction(null),
+    })
+    .onFinalize(() => {
+      scrub.set(-1);
+      active.set(withTiming(0, { duration }));
+      scheduleOnRN(setScrubMs, null);
+    });
+
+  const trackStyle = useAnimatedStyle(() => {
+    const height = TRACK_HEIGHT + (TRACK_HEIGHT_SCRUBBING - TRACK_HEIGHT) * active.get();
+    return { height, borderRadius: height / 2 };
+  });
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${(scrub.get() >= 0 ? scrub.get() : live.get()) * 100}%`,
+  }));
+  const thumbStyle = useAnimatedStyle(() => {
+    const fraction = scrub.get() >= 0 ? scrub.get() : live.get();
+    return {
+      opacity: active.get(),
+      transform: [
+        { translateX: fraction * width.get() - THUMB_SIZE / 2 },
+        { scale: 0.4 + 0.6 * active.get() },
+      ],
+    };
   });
 
-  const liveFraction = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
-  const fraction = dragFraction ?? liveFraction;
-  const shownMs = dragFraction !== null ? dragFraction * durationMs : positionMs;
-  const dragging = dragFraction !== null;
-  const trackHeight = dragging ? 8 : 4;
+  const shownMs = scrubMs ?? positionMs;
 
   return (
     <View>
-      <View
-        {...responder.panHandlers}
-        onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
-        style={local.touch}
-        accessible
-        accessibilityRole="adjustable"
-        accessibilityLabel="Song position"
-        accessibilityValue={{ text: `${formatDuration(positionMs)} of ${formatDuration(durationMs)}` }}
-        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-        onAccessibilityAction={(event) => {
-          const step = event.nativeEvent.actionName === 'increment' ? 10_000 : -10_000;
-          seekTo(Math.min(durationMs, Math.max(0, positionMs + step)));
-        }}
-      >
+      <GestureDetector gesture={scrubGesture}>
         <View
-          style={[
-            styles.track,
-            { height: trackHeight, borderRadius: trackHeight / 2, backgroundColor: theme.colors.progressTrack },
-          ]}
+          onLayout={(e: LayoutChangeEvent) => {
+            width.set(e.nativeEvent.layout.width);
+          }}
+          style={styles.touch}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel="Song position"
+          accessibilityValue={{ text: `${formatDuration(positionMs)} of ${formatDuration(durationMs)}` }}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={(event) => {
+            const step = event.nativeEvent.actionName === 'increment' ? 10_000 : -10_000;
+            seekTo(Math.min(durationMs, Math.max(0, positionMs + step)));
+          }}
         >
-          <View
-            style={[
-              styles.fill,
-              { width: `${fraction * 100}%`, backgroundColor: theme.colors.progressFill },
-            ]}
-          />
+          <Animated.View style={[styles.track, trackStyle]}>
+            <Animated.View style={[styles.fill, fillStyle]} />
+          </Animated.View>
+          <Animated.View style={[styles.thumb, thumbStyle]} pointerEvents="none" />
         </View>
-      </View>
-      <View style={local.times}>
+      </GestureDetector>
+      <View style={styles.times}>
         <Text variant="caption" color="secondary" tabular>
           {formatDuration(shownMs)}
         </Text>
@@ -93,6 +165,24 @@ const useStyles = makeStyles((t) => ({
     height: TOUCH_HEIGHT,
     justifyContent: 'center',
   },
+  track: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: t.colors.progressTrack,
+  },
+  fill: {
+    height: '100%',
+    backgroundColor: t.colors.progressFill,
+  },
+  thumb: {
+    position: 'absolute',
+    left: 0,
+    top: (TOUCH_HEIGHT - THUMB_SIZE) / 2,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    backgroundColor: t.colors.progressFill,
+  },
   times: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -100,13 +190,3 @@ const useStyles = makeStyles((t) => ({
     marginTop: -t.spacing.xs,
   },
 }));
-
-const styles = StyleSheet.create({
-  track: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-  },
-});
