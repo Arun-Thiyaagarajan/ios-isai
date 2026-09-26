@@ -2,7 +2,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, router } from 'expo-router';
 import { memo, useEffect, useMemo, useRef } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { db } from '@/db/client';
@@ -15,20 +15,13 @@ import { formatCount } from '@/lib/format';
 import { selectionHaptic } from '@/lib/haptics';
 
 import { AlbumArtwork } from '../components/AlbumArtwork';
+import { GRID_OUTER, useFixedGrid } from '../components/useGridLayout';
 import { useBrowse } from '../navigation';
-import { isAlphabetical, sanitizeAlbumView, type GridColumns } from '../viewOptions';
+import { isAlphabetical, sanitizeAlbumView } from '../viewOptions';
 
-/** Outer padding and the gap between grid tiles. */
-const OUTER = 16;
-const GAP = 12;
 const LIST_ARTWORK = 56;
 /** The A–Z rail appears once a list is long enough to need it. */
 const RAIL_MIN_ALBUMS = 30;
-
-function gridTileWidth(screenWidth: number, columns: GridColumns): number {
-  // Exact (fractional) widths, so the grid fills the row with equal gutters on every screen.
-  return (screenWidth - OUTER * 2 - GAP * (columns - 1)) / columns;
-}
 
 /**
  * Every album, as a grid (2–4 columns) or a list, in the saved sort order. A–Z rail for title
@@ -39,7 +32,6 @@ export function AlbumsScreen() {
   const styles = useStyles();
   const browse = useBrowse();
   const reducedMotion = useReducedMotion();
-  const { width } = useWindowDimensions();
   const view = sanitizeAlbumView(useSettings((s) => s.albumsView));
   const listRef = useRef<FlashListRef<SortedAlbum>>(null);
   // First visible album, so switching layout or columns keeps your place.
@@ -55,7 +47,7 @@ export function AlbumsScreen() {
   const showRail = isAlphabetical(view.sort) && data.length >= RAIL_MIN_ALBUMS;
   const grid = view.layout === 'grid';
   const columns = grid ? view.columns : 1;
-  const tileWidth = gridTileWidth(width, view.columns);
+  const { tileWidth, cellStyle } = useFixedGrid(view.columns);
   // A new layout or column count remounts the list (numColumns can't change on a mounted list).
   const layoutKey = grid ? `grid-${view.columns}` : 'list';
 
@@ -108,14 +100,7 @@ export function AlbumsScreen() {
           }
           renderItem={({ item, index }) =>
             grid ? (
-              <View
-                style={{
-                  // Equal gutters: each cell gets its share of the gaps as padding.
-                  paddingLeft: (GAP * (index % view.columns)) / view.columns,
-                  paddingRight: (GAP * (view.columns - 1 - (index % view.columns))) / view.columns,
-                  paddingBottom: GAP + theme.spacing.xs,
-                }}
-              >
+              <View style={cellStyle(index)}>
                 <AlbumGridItem album={item} width={tileWidth} compact={view.columns === 4} onOpen={browse.album} />
               </View>
             ) : (
@@ -128,9 +113,9 @@ export function AlbumsScreen() {
           }}
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
-            paddingHorizontal: grid ? OUTER : 0,
+            paddingHorizontal: grid ? GRID_OUTER : 0,
             // In the list the rail needs room; in the grid it floats over the outer margin.
-            paddingRight: grid ? OUTER : showRail ? 24 : 0,
+            paddingRight: grid ? GRID_OUTER : showRail ? 24 : 0,
             paddingBottom: theme.spacing.max,
           }}
           style={styles.screen}

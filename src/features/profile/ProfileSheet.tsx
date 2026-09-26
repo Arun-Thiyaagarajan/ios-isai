@@ -1,5 +1,5 @@
 import { isLibraryAvailable } from '@modules/isai-library';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-nat
 import { config } from '@/config';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
-import { getLibraryStats } from '@/db/repos/library';
+import { getLibraryStats, setDuplicateHiding } from '@/db/repos/library';
 import { listPlaylists } from '@/db/repos/playlists';
 import {
   Icon,
@@ -28,6 +28,7 @@ import {
 import { scanLibrary } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { useSettings, type Settings } from '@/features/settings/settingsStore';
+import { backUpNow, restoreFromBackup } from '@/features/transfer/fileTransfer';
 import { formatCount, formatTimeAgo } from '@/lib/format';
 import { selectionHaptic } from '@/lib/haptics';
 
@@ -196,6 +197,26 @@ function ProfileHeader() {
   );
 }
 
+/** Hide Duplicates: marks extra copies in the library (not just a display filter), then refreshes. */
+function HideDuplicatesRow() {
+  const client = useQueryClient();
+  const value = useSettings((s) => s.hideDuplicates);
+  const set = useSettings((s) => s.set);
+  return (
+    <SwitchRow
+      leading={<RowIcon name="duplicate" />}
+      title="Hide Duplicates"
+      subtitle="Show each song once, keeping the best-quality copy"
+      value={value}
+      onValueChange={(next) => {
+        set('hideDuplicates', next);
+        setDuplicateHiding(db, next);
+        client.invalidateQueries({ queryKey: queryKeys.library.all });
+      }}
+    />
+  );
+}
+
 function LibraryRows() {
   const theme = useTheme();
   const scanning = useScanStore((s) => s.status === 'scanning');
@@ -243,6 +264,7 @@ function LibraryRows() {
         title="Check for New Music"
         subtitle="Looks for added and deleted songs when Isai opens"
       />
+      <HideDuplicatesRow />
     </SettingsGroup>
   );
 }
@@ -311,6 +333,23 @@ export function ProfileSheet() {
         <SettingSwitch setting="haptics" icon="haptics" title="Haptics" subtitle="Gentle taps on controls and tabs" />
         <SettingSwitch setting="miniPlayerSwipe" icon="swipe" title="Swipe to Change Songs" subtitle="Swipe the mini player left or right" />
         <SettingSwitch setting="showGreeting" icon="greeting" title="Greeting on Home" />
+      </SettingsGroup>
+
+      <SettingsGroup title="Backup & Restore" footer="Backups hold your playlists, favorites, play counts, edited song info, lyrics and settings, not the music files.">
+        <ListRow
+          title="Back Up Now"
+          subtitle="Save a backup file, e.g. to Files or Drive"
+          onPress={backUpNow}
+          leading={<RowIcon name="backup" />}
+          trailing={<Chevron />}
+        />
+        <ListRow
+          title="Restore from Backup"
+          subtitle="Adds to what’s here; nothing is deleted"
+          onPress={restoreFromBackup}
+          leading={<RowIcon name="importFile" />}
+          trailing={<Chevron />}
+        />
       </SettingsGroup>
 
       <SettingsGroup title="About">

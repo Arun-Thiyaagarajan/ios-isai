@@ -2,6 +2,7 @@
 import {
   firstIndexes,
   listAllAlbums,
+  listAllArtists,
   listSongIdsSorted,
   listSongsSorted,
   songLetterIndex,
@@ -72,5 +73,18 @@ describe('firstIndexes', () => {
       { letter: 'B', index: 2 },
       { letter: '#', index: 3 },
     ]);
+  });
+});
+
+describe('listAllArtists', () => {
+  it('sorts by name, album count and song count', () => {
+    const db = library();
+    expect(listAllArtists(db, 'name', false).map((a) => [a.name, a.letter])).toEqual([
+      ['Anu', 'A'],
+      ['Nena', 'N'],
+      ['Zed', 'Z'],
+    ]);
+    expect(listAllArtists(db, 'name', true).map((a) => a.name)).toEqual(['Zed', 'Nena', 'Anu']);
+    expect(listAllArtists(db, 'songs', true)[0].name).toBe('Anu');
   });
 });

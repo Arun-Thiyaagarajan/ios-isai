@@ -13,41 +13,58 @@ type Props = {
 };
 
 /**
- * The listener's avatar: their photo, or their initials on the theme accent, with a subtle ring.
- * Without a name or photo it shows a person glyph.
+ * The listener's avatar: a round photo, or their initials on the theme accent, inside a thin ring
+ * that suits the theme. Without a name or photo it shows a person glyph.
+ *
+ * The photo is drawn as its own circle (sized exactly inside the ring, rounded itself) rather than
+ * relying on the parent to clip a square image, so it's always a clean round crop, including in
+ * the iOS header. `cover` fills the circle without stretching; the photo is centered, and the
+ * square crop chosen in the picker keeps the person in the middle.
  */
 export function ProfileAvatar({ size, onPress, accessibilityLabel }: Props) {
   const theme = useTheme();
   const name = useSettings((s) => s.profileName);
   const photo = useSettings((s) => s.profilePhotoUri);
   const letters = initials(name);
-  const ring = Math.max(1.5, Math.round(size / 24));
+  const ring = size >= 60 ? 2.5 : 1.5;
+  const inner = size - ring * 2;
 
   const body = (
     <View
       style={[
-        styles.circle,
+        styles.ring,
         {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: theme.colors.accent,
-          borderWidth: ring,
-          borderColor: theme.colors.border,
+          padding: ring,
+          // A soft ring from the theme: dark hairline on light themes, light hairline on dark ones.
+          backgroundColor: theme.colors.border,
         },
       ]}
     >
       {photo ? (
-        <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
-      ) : letters ? (
-        <Text
-          maxFontSizeMultiplier={1}
-          style={{ color: theme.colors.onAccent, fontSize: size * 0.4, fontWeight: '600', letterSpacing: 0.5 }}
-        >
-          {letters}
-        </Text>
+        <Image
+          source={{ uri: photo }}
+          style={{ width: inner, height: inner, borderRadius: inner / 2 }}
+          contentFit="cover"
+          contentPosition="center"
+          transition={150}
+          accessibilityIgnoresInvertColors
+        />
       ) : (
-        <Icon name="person" size={Math.round(size * 0.5)} color={theme.colors.onAccent} />
+        <View style={[styles.fill, { width: inner, height: inner, borderRadius: inner / 2, backgroundColor: theme.colors.accent }]}>
+          {letters ? (
+            <Text
+              maxFontSizeMultiplier={1}
+              style={{ color: theme.colors.onAccent, fontSize: inner * 0.4, fontWeight: '600', letterSpacing: 0.5 }}
+            >
+              {letters}
+            </Text>
+          ) : (
+            <Icon name="person" size={Math.round(inner * 0.5)} color={theme.colors.onAccent} />
+          )}
+        </View>
       )}
     </View>
   );
@@ -69,9 +86,11 @@ export function ProfileAvatar({ size, onPress, accessibilityLabel }: Props) {
 }
 
 const styles = StyleSheet.create({
-  circle: {
+  ring: {
+    overflow: 'hidden',
+  },
+  fill: {
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
 });

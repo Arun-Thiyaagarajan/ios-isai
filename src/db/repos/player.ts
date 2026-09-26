@@ -52,7 +52,7 @@ export function getPlayableSongs(db: AppDatabase, ids: number[]): PlayableSong[]
 /** All song ids in A–Z order, for "play from the Songs list". */
 export function listSongIds(db: AppDatabase): number[] {
   return db
-    .all<{ id: number }>(sql`SELECT id FROM songs WHERE is_available = 1 ORDER BY title_sort, id`)
+    .all<{ id: number }>(sql`SELECT id FROM songs WHERE is_available = 1 AND duplicate_of IS NULL ORDER BY title_sort, id`)
     .map((row) => row.id);
 }
 

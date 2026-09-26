@@ -5,7 +5,7 @@
  */
 import { sql, type SQL } from 'drizzle-orm';
 
-import type { AlbumSort, SongSort } from '@/features/library/viewOptions';
+import type { AlbumSort, ArtistSort, SongSort } from '@/features/library/viewOptions';
 
 import type { AppDatabase } from '../types';
 import type { AlbumSummary, TrackItem } from './browse';
@@ -71,7 +71,7 @@ const songFrom = sql`
   FROM songs s
   LEFT JOIN albums a ON a.id = s.album_id
   LEFT JOIN song_stats st ON st.song_id = s.id
-  WHERE s.is_available = 1
+  WHERE s.is_available = 1 AND s.duplicate_of IS NULL
 `;
 
 export function listSongsSorted(
@@ -119,4 +119,42 @@ export function firstIndexes(letters: string[]): { letter: string; index: number
     if (!seen.has(letter)) seen.set(letter, index);
   });
   return [...seen.entries()].map(([letter, index]) => ({ letter, index }));
+}
+
+// ─── Artists ────────────────────────────────────────────────────────────────
+
+export type SortedArtist = {
+  id: number;
+  name: string;
+  songCount: number;
+  albumCount: number;
+  /** Artwork of one of the artist's albums, used as the artist picture. */
+  albumId: number | null;
+  artworkKey: string | null;
+  letter: string;
+};
+
+const artistKey: Record<ArtistSort, SQL> = {
+  name: sql`ar.name_sort`,
+  albums: sql`ar.album_count`,
+  songs: sql`ar.song_count`,
+};
+
+export function listAllArtists(db: AppDatabase, sort: ArtistSort, descending: boolean): SortedArtist[] {
+  const key = artistKey[sort];
+  return db.all<SortedArtist>(sql`
+    SELECT x.id AS id, x.name AS name, x.song_count AS songCount, x.album_count AS albumCount,
+           x.album_id AS albumId, al.artwork_key AS artworkKey, x.letter AS letter
+    FROM (
+      SELECT ar.id, ar.name, ar.name_sort, ar.song_count, ar.album_count,
+             ${letterOf(sql`ar.name_sort`)} AS letter,
+             (SELECT s.album_id FROM song_artists sa JOIN songs s ON s.id = sa.song_id
+              WHERE sa.artist_id = ar.id AND s.is_available = 1 AND s.album_id IS NOT NULL
+              ORDER BY s.has_art DESC LIMIT 1) AS album_id,
+             row_number() OVER (ORDER BY ${key} ${direction(descending)}, ar.name_sort, ar.id) AS position
+      FROM artists ar WHERE ar.song_count > 0
+    ) x
+    LEFT JOIN albums al ON al.id = x.album_id
+    ORDER BY x.position
+  `);
 }

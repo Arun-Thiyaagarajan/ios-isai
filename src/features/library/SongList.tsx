@@ -1,7 +1,7 @@
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Stack, router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { db } from '@/db/client';
@@ -18,6 +18,7 @@ import { formatCount } from '@/lib/format';
 import { selectionHaptic } from '@/lib/haptics';
 
 import { TrackRow } from './components/TrackRow';
+import { SelectionBar, useSongSelection } from './selection';
 import { scanLibrary } from './scanService';
 import { useScanStore } from './scanStore';
 import { SORT_LABELS, isAlphabetical, sanitizeSongView } from './viewOptions';
@@ -36,6 +37,7 @@ export function SongList({ total }: { total: number }) {
   const view = sanitizeSongView(useSettings((s) => s.songsView));
   const [refreshing, setRefreshing] = useState(false);
   const listRef = useRef<FlashListRef<TrackItem>>(null);
+  const selection = useSongSelection();
 
   const songs = useInfiniteQuery({
     queryKey: [...queryKeys.library.songs(), view.sort, view.descending],
@@ -51,6 +53,11 @@ export function SongList({ total }: { total: number }) {
   });
 
   const data = songs.data?.pages.flat() ?? [];
+  // Every song in list order, only while selecting (for "Select All" and play order).
+  const orderedIds = useMemo(
+    () => (selection.active ? listSongIdsSorted(db, view.sort, view.descending) : []),
+    [selection.active, view.sort, view.descending],
+  );
   const playAll = (startId?: number, shuffle = false) => {
     const ids = listSongIdsSorted(db, view.sort, view.descending);
     playSongs(ids, startId === undefined ? 0 : Math.max(0, ids.indexOf(startId)), { shuffle, context: ALL_SONGS });
@@ -77,9 +84,17 @@ export function SongList({ total }: { total: number }) {
   return (
     <View style={styles.screen}>
       <Stack.Screen
-        options={headerActions([
-          { icon: 'sort', label: 'Sort', onPress: () => router.push({ pathname: '/view-options', params: { list: 'songs' } }) },
-        ])}
+        options={headerActions(
+          selection.active
+            ? [
+                { icon: 'selectAll', label: 'Select All', onPress: () => selection.setAll(orderedIds) },
+                { icon: 'check', label: 'Done', onPress: selection.done },
+              ]
+            : [
+                { icon: 'select', label: 'Select', onPress: selection.start },
+                { icon: 'sort', label: 'Sort', onPress: () => router.push({ pathname: '/view-options', params: { list: 'songs' } }) },
+              ],
+        )}
       />
       <FlashList
         ref={listRef}
@@ -88,7 +103,14 @@ export function SongList({ total }: { total: number }) {
         renderItem={({ item }) => (
           <TrackRow
             track={item}
-            onPress={item.isPlayable ? () => playAll(item.id) : undefined}
+            selected={selection.active ? selection.isSelected(item.id) : undefined}
+            onPress={
+              selection.active
+                ? () => selection.toggle(item.id)
+                : item.isPlayable
+                  ? () => playAll(item.id)
+                  : undefined
+            }
             onMore={() => openSongActions(item.id)}
           />
         )}
@@ -110,7 +132,9 @@ export function SongList({ total }: { total: number }) {
         refreshing={refreshing}
         onRefresh={onRefresh}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ paddingRight: showRail ? 20 : 0, paddingBottom: theme.spacing.max }}
+        // Extra room at the bottom while the selection bar is up.
+        contentContainerStyle={{ paddingRight: showRail ? 20 : 0, paddingBottom: theme.spacing.max * (selection.active ? 2.5 : 1) }}
+        extraData={selection.selected}
         style={styles.screen}
       />
       {showRail && letters.data ? (
@@ -123,6 +147,7 @@ export function SongList({ total }: { total: number }) {
           }}
         />
       ) : null}
+      <SelectionBar selection={selection} orderedIds={orderedIds} context={ALL_SONGS} />
     </View>
   );
 }

@@ -1,5 +1,6 @@
+import { Link } from 'expo-router';
 import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -99,13 +100,18 @@ export function PlayerArtwork({ item, size, isPlaying, hidden = false }: Props) 
         onAccessibilityAction={(e) => (e.nativeEvent.actionName === 'next' ? skipToNext() : skipToPrevious())}
       >
         {hidden ? null : (
-          <AlbumArtwork
-            albumId={item.albumId}
-            artworkKey={item.artworkUri}
-            size={size}
-            radius={ARTWORK_RADIUS}
-            placeholderIcon="song"
-          />
+          // Where the mini player's artwork zooms to when Now Playing opens (iOS 18+).
+          <Link.AppleZoomTarget>
+            <View>
+              <AlbumArtwork
+                albumId={item.albumId}
+                artworkKey={item.artworkUri}
+                size={size}
+                radius={ARTWORK_RADIUS}
+                placeholderIcon="song"
+              />
+            </View>
+          </Link.AppleZoomTarget>
         )}
       </Animated.View>
     </GestureDetector>

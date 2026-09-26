@@ -376,11 +376,60 @@ type Runner = Pick<AppDatabase, 'run' | 'get'>;
  * Recomputes album/artist/genre/folder counts and display artists, and removes entities no song
  * refers to anymore. Used after scans and after editing a song.
  */
+// ─── Duplicates ─────────────────────────────────────────────────────────────
+
+const DUPLICATES_KEY = 'hideDuplicates';
+
+export function isDuplicateHiding(db: Runner): boolean {
+  return db.get<{ value: string }>(sql`SELECT value FROM scan_state WHERE key = ${DUPLICATES_KEY}`)?.value === '1';
+}
+
+/**
+ * Marks extra copies of the same song so lists show it once. Copies match on title, artist and
+ * length (within 2 seconds); the one kept has the highest bitrate, then the biggest file, then
+ * the oldest id. With hiding off, every mark is cleared.
+ */
+export function markDuplicates(db: Runner): void {
+  db.run(sql`UPDATE songs SET duplicate_of = NULL WHERE duplicate_of IS NOT NULL`);
+  if (!isDuplicateHiding(db)) {
+    return;
+  }
+  db.run(sql`
+    UPDATE songs SET duplicate_of = (
+      SELECT k.id FROM songs k
+      WHERE k.is_available = 1 AND k.id != songs.id
+        AND k.title_sort = songs.title_sort
+        AND lower(k.artist_display) = lower(songs.artist_display)
+        AND abs(k.duration_ms - songs.duration_ms) <= 2000
+        AND (coalesce(k.bitrate, 0) > coalesce(songs.bitrate, 0)
+          OR (coalesce(k.bitrate, 0) = coalesce(songs.bitrate, 0)
+            AND (k.file_size > songs.file_size OR (k.file_size = songs.file_size AND k.id < songs.id))))
+      ORDER BY coalesce(k.bitrate, 0) DESC, k.file_size DESC, k.id
+      LIMIT 1
+    )
+    WHERE is_available = 1
+  `);
+}
+
+/** Turns Hide Duplicates on or off, then updates the marks and the totals that depend on them. */
+export function setDuplicateHiding(db: AppDatabase, hide: boolean): void {
+  db.transaction((tx) => {
+    tx.run(sql`
+      INSERT INTO scan_state (key, value) VALUES (${DUPLICATES_KEY}, ${hide ? '1' : '0'})
+      ON CONFLICT (key) DO UPDATE SET value = excluded.value
+    `);
+    refreshAggregates(tx);
+    rebuildSearchIndex(tx);
+  });
+}
+
 export function refreshAggregates(db: Runner): void {
+  // Duplicates first: the counts below leave out hidden copies.
+  markDuplicates(db);
   db.run(sql`
     UPDATE albums SET
-      song_count = (SELECT count(*) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
-      total_duration_ms = (SELECT coalesce(sum(s.duration_ms), 0) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
+      song_count = (SELECT count(*) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1 AND s.duplicate_of IS NULL),
+      total_duration_ms = (SELECT coalesce(sum(s.duration_ms), 0) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1 AND s.duplicate_of IS NULL),
       year = (SELECT max(s.year) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1)
   `);
   db.run(sql`
@@ -394,16 +443,16 @@ export function refreshAggregates(db: Runner): void {
   db.run(sql`
     UPDATE artists SET
       song_count = (SELECT count(*) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
-                    WHERE sa.artist_id = artists.id AND sa.role = 'artist' AND s.is_available = 1),
+                    WHERE sa.artist_id = artists.id AND sa.role = 'artist' AND s.is_available = 1 AND s.duplicate_of IS NULL),
       album_count = (SELECT count(DISTINCT s.album_id) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
-                     WHERE sa.artist_id = artists.id AND s.is_available = 1)
+                     WHERE sa.artist_id = artists.id AND s.is_available = 1 AND s.duplicate_of IS NULL)
   `);
   db.run(sql`
     UPDATE genres SET song_count = (SELECT count(*) FROM song_genres sg JOIN songs s ON s.id = sg.song_id
-                                    WHERE sg.genre_id = genres.id AND s.is_available = 1)
+                                    WHERE sg.genre_id = genres.id AND s.is_available = 1 AND s.duplicate_of IS NULL)
   `);
   db.run(sql`
-    UPDATE folders SET song_count = (SELECT count(*) FROM songs s WHERE s.folder_id = folders.id AND s.is_available = 1)
+    UPDATE folders SET song_count = (SELECT count(*) FROM songs s WHERE s.folder_id = folders.id AND s.is_available = 1 AND s.duplicate_of IS NULL)
   `);
 
   // Entities no song refers to anymore (missing songs still hold theirs until purged).
@@ -517,7 +566,7 @@ export function removeRoot(db: AppDatabase, rootId: number): void {
 // ─── Reading ────────────────────────────────────────────────────────────────
 
 export function countSongs(db: AppDatabase): number {
-  return db.get<{ n: number }>(sql`SELECT count(*) AS n FROM songs WHERE is_available = 1`)?.n ?? 0;
+  return db.get<{ n: number }>(sql`SELECT count(*) AS n FROM songs WHERE is_available = 1 AND duplicate_of IS NULL`)?.n ?? 0;
 }
 
 // ─── Music folders (include / exclude) ──────────────────────────────────────
@@ -578,7 +627,7 @@ export type LibraryStats = { songs: number; albums: number; artists: number; las
 export function getLibraryStats(db: AppDatabase): LibraryStats {
   const row = db.get<{ songs: number; albums: number; artists: number }>(sql`
     SELECT
-      (SELECT count(*) FROM songs WHERE is_available = 1) AS songs,
+      (SELECT count(*) FROM songs WHERE is_available = 1 AND duplicate_of IS NULL) AS songs,
       (SELECT count(*) FROM albums WHERE song_count > 0) AS albums,
       (SELECT count(*) FROM artists WHERE song_count > 0) AS artists
   `);

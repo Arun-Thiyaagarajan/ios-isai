@@ -13,8 +13,9 @@ import {
   listRecentlyAddedAlbums,
   listRecentlyPlayedTracks,
 } from '@/db/repos/browse';
+import { listeningSummary, periodStart, topArtists } from '@/db/repos/stats';
 import { listSongIds } from '@/db/repos/player';
-import { Button, EmptyScreen, IconButton, SectionHeader, Text, makeStyles, useTheme } from '@/design';
+import { Button, EmptyScreen, Icon, IconButton, SectionHeader, Text, makeStyles, useTheme } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { AlbumTile } from '@/features/library/components/AlbumTile';
 import { TrackRow } from '@/features/library/components/TrackRow';
@@ -81,6 +82,43 @@ function ContinueListening() {
         />
       </Pressable>
     </>
+  );
+}
+
+/** This month in one line ("3 hr 12 min · mostly A.R. Rahman"); opens Your Listening. */
+function ListeningCard() {
+  const theme = useTheme();
+  const styles = useStyles();
+  const stats = useQuery({
+    queryKey: [...queryKeys.history.all, 'stats', 'home'],
+    queryFn: () => {
+      const since = periodStart('month');
+      return { summary: listeningSummary(db, since), topArtist: topArtists(db, since, 1)[0]?.name ?? null };
+    },
+  });
+  if (!stats.data || stats.data.summary.plays === 0) return null;
+  const { summary, topArtist } = stats.data;
+  const time = summary.minutes >= 60 ? `${Math.floor(summary.minutes / 60)} hr ${summary.minutes % 60} min` : `${summary.minutes} min`;
+
+  return (
+    <Pressable
+      onPress={() => router.push('/(tabs)/(home)/stats')}
+      accessibilityRole="button"
+      accessibilityLabel={`Your listening this month: ${time}${topArtist ? `, mostly ${topArtist}` : ''}. Opens your stats.`}
+      style={({ pressed }) => [styles.listeningCard, pressed && styles.pressed]}
+    >
+      <View style={styles.listeningIcon}>
+        <Icon name="stats" size={theme.sizes.icon.md} color={theme.colors.onAccent} />
+      </View>
+      <View style={styles.nowText}>
+        <Text variant="headline">{time} this month</Text>
+        <Text variant="subhead" color="secondary" numberOfLines={1}>
+          {topArtist ? `Mostly ${topArtist} · ` : ''}
+          {formatCount(summary.songs, 'song')}
+        </Text>
+      </View>
+      <Icon name="chevronRight" size={theme.sizes.icon.sm} color={theme.colors.textTertiary} />
+    </Pressable>
   );
 }
 
@@ -180,6 +218,8 @@ export function HomeScreen() {
       </View>
 
       <ContinueListening />
+
+      <ListeningCard />
 
       {recentList.length > 0 ? (
         <>
@@ -291,6 +331,26 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing.md,
     paddingHorizontal: t.gutter,
     paddingTop: t.spacing.lg,
+  },
+  listeningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing.md,
+    marginHorizontal: t.gutter,
+    marginTop: t.spacing.lg,
+    padding: t.spacing.md,
+    borderRadius: t.radius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: t.colors.card,
+    ...t.shadows.card,
+  },
+  listeningIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: t.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.colors.accent,
   },
   nowCard: {
     flexDirection: 'row',

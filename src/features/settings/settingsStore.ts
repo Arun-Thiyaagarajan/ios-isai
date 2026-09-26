@@ -5,8 +5,12 @@ import type { AppDatabase } from '@/db/types';
 import { themes, type DarkThemeName, type LightThemeName, type ThemeMode } from '@/design';
 import {
   DEFAULT_ALBUM_VIEW,
+  DEFAULT_ARTIST_VIEW,
+  DEFAULT_PLAYLIST_VIEW,
   DEFAULT_SONG_VIEW,
   type AlbumViewOptions,
+  type ArtistViewOptions,
+  type PlaylistViewOptions,
   type SongViewOptions,
 } from '@/features/library/viewOptions';
 import {
@@ -41,6 +45,10 @@ export type Settings = {
   autoScan: boolean;
   albumsView: AlbumViewOptions;
   songsView: SongViewOptions;
+  artistsView: ArtistViewOptions;
+  playlistsView: PlaylistViewOptions;
+  /** Show each song once when the same song is in the library more than once. */
+  hideDuplicates: boolean;
 
   // Playback and interface
   /** Bring back the last queue (paused, same position) when Isai opens. */
@@ -72,6 +80,9 @@ export const settingsDefaults: Settings = {
   autoScan: true,
   albumsView: DEFAULT_ALBUM_VIEW,
   songsView: DEFAULT_SONG_VIEW,
+  artistsView: DEFAULT_ARTIST_VIEW,
+  playlistsView: DEFAULT_PLAYLIST_VIEW,
+  hideDuplicates: false,
   restoreQueue: true,
   miniPlayerSwipe: true,
   showVolumeSlider: false,
@@ -101,6 +112,9 @@ const validators: { [K in keyof Settings]: (value: unknown) => value is Settings
   autoScan: isBoolean,
   albumsView: (v): v is AlbumViewOptions => isObject(v),
   songsView: (v): v is SongViewOptions => isObject(v),
+  artistsView: (v): v is ArtistViewOptions => isObject(v),
+  playlistsView: (v): v is PlaylistViewOptions => isObject(v),
+  hideDuplicates: isBoolean,
   restoreQueue: isBoolean,
   miniPlayerSwipe: isBoolean,
   showVolumeSlider: isBoolean,

@@ -14,7 +14,10 @@ import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
 import { openSongActions } from '@/features/player/songActions';
 
 import { AlbumArtwork } from '../components/AlbumArtwork';
+import { headerActions } from '@/features/shell/headerActions';
+
 import { TrackRow } from '../components/TrackRow';
+import { SelectionBar, useSongSelection } from '../selection';
 import { useBrowse } from '../navigation';
 
 type Item = { kind: 'disc'; disc: number } | { kind: 'track'; track: TrackItem };
@@ -95,6 +98,7 @@ export function AlbumScreen() {
   const theme = useTheme();
   const styles = useStyles();
   const albumId = Number(useLocalSearchParams<{ id: string }>().id);
+  const selection = useSongSelection();
 
   const album = useQuery({ queryKey: queryKeys.library.album(albumId), queryFn: () => getAlbum(db, albumId) ?? null });
   const tracks = useQuery({
@@ -112,7 +116,19 @@ export function AlbumScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: album.data?.title ?? '' }} />
+      <Stack.Screen
+        options={{
+          title: album.data?.title ?? '',
+          ...headerActions(
+            selection.active
+              ? [
+                  { icon: 'selectAll', label: 'Select All', onPress: () => selection.setAll(playableIds) },
+                  { icon: 'check', label: 'Done', onPress: selection.done },
+                ]
+              : [{ icon: 'select', label: 'Select', onPress: selection.start }],
+          ),
+        }}
+      />
       <FlashList
         data={withDiscHeaders(tracks.data ?? [])}
         keyExtractor={(item) => (item.kind === 'disc' ? `d${item.disc}` : String(item.track.id))}
@@ -129,8 +145,11 @@ export function AlbumScreen() {
               leading="number"
               showAlbum={false}
               showArtist={variousArtists}
+              selected={selection.active ? selection.isSelected(item.track.id) : undefined}
               onPress={
-                item.track.isPlayable
+                selection.active
+                  ? () => selection.toggle(item.track.id)
+                  : item.track.isPlayable
                   ? () => playSongs(playableIds, playableIds.indexOf(item.track.id), {
                       context: { type: 'album', name: album.data?.title ?? '' },
                     })
@@ -141,8 +160,14 @@ export function AlbumScreen() {
           )
         }
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.bottom}
+        contentContainerStyle={[styles.bottom, selection.active && styles.bottomSelecting]}
+        extraData={selection.selected}
         style={{ backgroundColor: theme.colors.bg }}
+      />
+      <SelectionBar
+        selection={selection}
+        orderedIds={playableIds}
+        context={{ type: 'album', name: album.data?.title ?? '' }}
       />
     </>
   );
@@ -172,5 +197,8 @@ const useStyles = makeStyles((t) => ({
   },
   bottom: {
     paddingBottom: t.spacing.max,
+  },
+  bottomSelecting: {
+    paddingBottom: t.spacing.max * 2.5,
   },
 }));

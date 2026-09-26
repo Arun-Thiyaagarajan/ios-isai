@@ -8,15 +8,17 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { getPlaylistSummary, listPlaylistTracks, type PlaylistTrack } from '@/db/repos/browse';
-import { deletePlaylist, movePlaylistEntry } from '@/db/repos/playlists';
+import { deletePlaylist, movePlaylistEntry, removePlaylistEntries } from '@/db/repos/playlists';
 import { EmptyScreen, makeStyles, Text } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { DragHandle } from '@/features/library/components/DragHandle';
+import { SelectionBar, useSongSelection } from '@/features/library/selection';
 import { TrackRow } from '@/features/library/components/TrackRow';
 import { playSongs } from '@/features/player/playerService';
 import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
 import { openSongActions } from '@/features/player/songActions';
 import { headerActions } from '@/features/shell/headerActions';
+import { exportPlaylistM3u } from '@/features/transfer/fileTransfer';
 import { formatCount } from '@/lib/format';
 import { selectionHaptic, tapHaptic } from '@/lib/haptics';
 
@@ -30,6 +32,7 @@ export function PlaylistScreen() {
   const client = useQueryClient();
   const playlistId = Number(useLocalSearchParams<{ id: string }>().id);
   const [reordering, setReordering] = useState(false);
+  const selection = useSongSelection();
 
   const summary = useQuery({
     queryKey: [...queryKeys.playlists.entries(playlistId), 'summary'],
@@ -63,6 +66,7 @@ export function PlaylistScreen() {
     const name = summary.data?.name ?? 'Playlist';
     Alert.alert(name, undefined, [
       ...(list.length > 1 ? [{ text: 'Reorder Songs', onPress: () => setReordering(true) }] : []),
+      ...(list.length > 0 ? [{ text: 'Export as M3U', onPress: () => exportPlaylistM3u(playlistId, name) }] : []),
       { text: 'Rename', onPress: () => router.push({ pathname: '/playlist-edit', params: { playlistId: String(playlistId) } }) },
       {
         text: 'Delete Playlist',
@@ -86,14 +90,22 @@ export function PlaylistScreen() {
   };
 
   return (
-    <>
+    <View style={styles.screen}>
       <Stack.Screen
         options={{
           title: summary.data?.name ?? '',
           ...headerActions(
             reordering
               ? [{ icon: 'check', label: 'Done', onPress: () => setReordering(false) }]
-              : [{ icon: 'more', label: 'Playlist options', onPress: showMenu }],
+              : selection.active
+                ? [
+                    { icon: 'selectAll', label: 'Select All', onPress: () => selection.setAll(playableIds) },
+                    { icon: 'check', label: 'Done', onPress: selection.done },
+                  ]
+                : [
+                    { icon: 'select', label: 'Select', onPress: selection.start },
+                    { icon: 'more', label: 'Playlist options', onPress: showMenu },
+                  ],
           ),
         }}
       />
@@ -143,8 +155,13 @@ export function PlaylistScreen() {
             onMoveUp={reordering && index > 0 ? () => move({ from: index, to: index - 1 }) : undefined}
             onMoveDown={reordering && index < list.length - 1 ? () => move({ from: index, to: index + 1 }) : undefined}
             note={item.missing ? 'File missing — it will return if the file comes back' : undefined}
+            selected={selection.active && !item.missing ? selection.isSelected(item.id) : undefined}
             onPress={
-              item.missing || !item.isPlayable
+              selection.active
+                ? item.missing
+                  ? undefined
+                  : () => selection.toggle(item.id)
+                : item.missing || !item.isPlayable
                 ? undefined
                 : () => playSongs(playableIds, playableIds.indexOf(item.id), {
                     context: { type: 'playlist', name: summary.data?.name ?? '' },
@@ -154,14 +171,34 @@ export function PlaylistScreen() {
           />
         )}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.bottom}
+        contentContainerStyle={[styles.bottom, selection.active && styles.bottomSelecting]}
+        extraData={selection.selected}
         style={styles.list}
       />
-    </>
+      <SelectionBar
+        selection={selection}
+        orderedIds={playableIds}
+        context={{ type: 'playlist', name: summary.data?.name ?? '' }}
+        extra={{
+          icon: 'remove',
+          label: 'Remove',
+          destructive: true,
+          onPress: (songIds) => {
+            // Every copy of a selected song leaves this playlist.
+            const chosen = new Set(songIds);
+            removePlaylistEntries(db, playlistId, list.filter((t) => chosen.has(t.id)).map((t) => t.entryId));
+            client.invalidateQueries({ queryKey: queryKeys.playlists.all });
+          },
+        }}
+      />
+    </View>
   );
 }
 
 const useStyles = makeStyles((t) => ({
+  screen: {
+    flex: 1,
+  },
   list: {
     backgroundColor: t.colors.bg,
   },
@@ -178,5 +215,8 @@ const useStyles = makeStyles((t) => ({
   },
   bottom: {
     paddingBottom: t.spacing.max,
+  },
+  bottomSelecting: {
+    paddingBottom: t.spacing.max * 2.5,
   },
 }));

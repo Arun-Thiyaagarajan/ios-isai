@@ -163,6 +163,8 @@ export const songs = sqliteTable(
     unplayableReason: text('unplayable_reason'),
     isAvailable: integer('is_available', { mode: 'boolean' }).notNull().default(true),
     missingSince: integer('missing_since'),
+    /** Set (to the copy that's shown) when this song is an extra copy and Hide Duplicates is on. */
+    duplicateOf: integer('duplicate_of'),
     tagsScannedAt: integer('tags_scanned_at'),
     scanGeneration: integer('scan_generation').notNull().default(0),
     lastError: text('last_error'),
@@ -171,6 +173,7 @@ export const songs = sqliteTable(
     uniqueIndex('songs_source_idx').on(t.source, t.sourceId),
     index('songs_album_track_idx').on(t.albumId, t.discNo, t.trackNo),
     index('songs_title_sort_idx').on(t.titleSort),
+    index('songs_duplicate_idx').on(t.duplicateOf),
     index('songs_date_added_idx').on(t.dateAdded),
     index('songs_folder_idx').on(t.folderId),
     index('songs_available_idx').on(t.isAvailable),

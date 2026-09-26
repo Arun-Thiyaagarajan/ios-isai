@@ -41,7 +41,7 @@ function insertSongs(db: Runner, where: SQL) {
     FROM songs s
     LEFT JOIN albums a ON a.id = s.album_id
     LEFT JOIN lyrics_cache l ON l.song_id = s.id
-    WHERE s.is_available = 1 AND ${where}
+    WHERE s.is_available = 1 AND s.duplicate_of IS NULL AND ${where}
   `);
 }
 
@@ -85,7 +85,7 @@ export function reindexSongs(db: Runner, songIds: number[]): void {
 export function ensureSearchIndex(db: AppDatabase): void {
   const row = db.get<{ indexed: number; songs: number }>(sql`
     SELECT (SELECT count(*) FROM search_fts) AS indexed,
-           (SELECT count(*) FROM songs WHERE is_available = 1) AS songs
+           (SELECT count(*) FROM songs WHERE is_available = 1 AND duplicate_of IS NULL) AS songs
   `);
   if (row && row.indexed === 0 && row.songs > 0) {
     rebuildSearchIndex(db);
@@ -138,7 +138,7 @@ function searchSongs(db: AppDatabase, match: string, prefix: string): TrackItem[
     JOIN songs s ON s.id = search_fts.entity_id
     LEFT JOIN albums a ON a.id = s.album_id
     LEFT JOIN song_stats st ON st.song_id = s.id
-    WHERE search_fts MATCH ${match} AND search_fts.entity_type = 'song' AND s.is_available = 1
+    WHERE search_fts MATCH ${match} AND search_fts.entity_type = 'song' AND s.is_available = 1 AND s.duplicate_of IS NULL
     ORDER BY ${rank}
       - CASE WHEN lower(s.title) LIKE ${prefix} THEN 5 ELSE 0 END
       - min(coalesce(st.play_count, 0), 20) * 0.05
@@ -155,7 +155,7 @@ function searchSongsFallback(db: AppDatabase, query: string): TrackItem[] {
            s.track_no AS trackNo, s.disc_no AS discNo, s.duration_ms AS durationMs, s.is_playable AS isPlayable,
            coalesce(s.artwork_override, a.artwork_key) AS artworkKey
     FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-    WHERE s.is_available = 1 AND (
+    WHERE s.is_available = 1 AND s.duplicate_of IS NULL AND (
       lower(s.title) LIKE ${like} ESCAPE '\\' OR lower(s.artist_display) LIKE ${like} ESCAPE '\\'
       OR lower(coalesce(a.title, '')) LIKE ${like} ESCAPE '\\' OR lower(s.file_name) LIKE ${like} ESCAPE '\\'
     )

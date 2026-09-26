@@ -3,9 +3,9 @@ import { Pressable, View } from 'react-native';
 import { Icon, Text, makeStyles, useTheme } from '@/design';
 import { selectionHaptic } from '@/lib/haptics';
 
-import { SORT_LABELS, type GridColumns, type LibraryLayout } from '../viewOptions';
+import { SORT_LABELS, type GridColumns, type LibraryLayout, type SortKey } from '../viewOptions';
 
-type Props<S extends keyof typeof SORT_LABELS> = {
+type Props<S extends SortKey> = {
   /** Omit for lists that have only one layout (e.g. Songs). */
   layout?: LibraryLayout;
   onLayoutChange?: (layout: LibraryLayout) => void;
@@ -22,7 +22,7 @@ type Props<S extends keyof typeof SORT_LABELS> = {
  * View and sort choices for a library list: List/Grid (with 2–4 columns), a sort order with a
  * check mark, and Ascending/Descending. Reusable for Albums, Songs, Artists and Playlists.
  */
-export function LibraryViewOptions<S extends keyof typeof SORT_LABELS>({
+export function LibraryViewOptions<S extends SortKey>({
   layout,
   onLayoutChange,
   columns,

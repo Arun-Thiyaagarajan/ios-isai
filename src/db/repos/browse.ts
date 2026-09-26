@@ -20,7 +20,7 @@ export function getLibraryCounts(db: AppDatabase): LibraryCounts {
   return (
     db.get<LibraryCounts>(sql`
       SELECT
-        (SELECT count(*) FROM songs WHERE is_available = 1) AS songs,
+        (SELECT count(*) FROM songs WHERE is_available = 1 AND duplicate_of IS NULL) AS songs,
         (SELECT count(*) FROM albums WHERE song_count > 0) AS albums,
         (SELECT count(*) FROM artists WHERE song_count > 0) AS artists,
         (SELECT count(*) FROM genres WHERE song_count > 0) AS genres,
@@ -68,7 +68,7 @@ export function listAlbums(db: AppDatabase, offset: number, limit: number, sort:
 export function listRecentlyAddedAlbums(db: AppDatabase, limit: number) {
   return db.all<AlbumSummary>(sql`
     SELECT ${albumColumns} FROM albums a
-    JOIN songs s ON s.album_id = a.id AND s.is_available = 1
+    JOIN songs s ON s.album_id = a.id AND s.is_available = 1 AND s.duplicate_of IS NULL
     WHERE a.song_count > 0
     GROUP BY a.id
     ORDER BY max(s.date_added) DESC
@@ -120,7 +120,7 @@ export function listSongs(db: AppDatabase, offset: number, limit: number): Track
   return mapTracks(
     db.all(sql`
       SELECT ${trackColumns} FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-      WHERE s.is_available = 1
+      WHERE s.is_available = 1 AND s.duplicate_of IS NULL
       ORDER BY s.title_sort, s.id
       LIMIT ${limit} OFFSET ${offset}
     `),
@@ -132,7 +132,7 @@ export function listAlbumTracks(db: AppDatabase, albumId: number): TrackItem[] {
   return mapTracks(
     db.all(sql`
       SELECT ${trackColumns} FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-      WHERE s.album_id = ${albumId} AND s.is_available = 1
+      WHERE s.album_id = ${albumId} AND s.is_available = 1 AND s.duplicate_of IS NULL
       ORDER BY coalesce(s.disc_no, 1), s.track_no IS NULL, s.track_no, s.title_sort
     `),
   );
@@ -195,7 +195,7 @@ export function listArtistSongs(db: AppDatabase, artistId: number): TrackItem[] 
   return mapTracks(
     db.all(sql`
       SELECT ${trackColumns} FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-      WHERE s.is_available = 1 AND s.id IN (
+      WHERE s.is_available = 1 AND s.duplicate_of IS NULL AND s.id IN (
         SELECT song_id FROM song_artists WHERE artist_id = ${artistId} AND role = 'artist'
       )
       ORDER BY s.title_sort, s.id
@@ -222,7 +222,7 @@ export function listGenreSongs(db: AppDatabase, genreId: number): TrackItem[] {
   return mapTracks(
     db.all(sql`
       SELECT ${trackColumns} FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-      WHERE s.is_available = 1 AND s.id IN (SELECT song_id FROM song_genres WHERE genre_id = ${genreId})
+      WHERE s.is_available = 1 AND s.duplicate_of IS NULL AND s.id IN (SELECT song_id FROM song_genres WHERE genre_id = ${genreId})
       ORDER BY s.title_sort, s.id
     `),
   );
@@ -259,7 +259,7 @@ export function listFolderSongs(db: AppDatabase, path: string): TrackItem[] {
   return mapTracks(
     db.all(sql`
       SELECT ${trackColumns} FROM songs s LEFT JOIN albums a ON a.id = s.album_id
-      WHERE s.is_available = 1 AND s.folder_id = (SELECT id FROM folders WHERE path = ${path})
+      WHERE s.is_available = 1 AND s.duplicate_of IS NULL AND s.folder_id = (SELECT id FROM folders WHERE path = ${path})
       ORDER BY lower(s.file_name)
     `),
   );
@@ -275,10 +275,11 @@ export type PlaylistSummary = {
   /** Artwork of the first song, used as the playlist cover. */
   albumId: number | null;
   artworkKey: string | null;
+  updatedAt: number;
 };
 
 const playlistSummaryColumns = sql`
-  p.id AS id, p.name AS name,
+  p.id AS id, p.name AS name, p.updated_at AS updatedAt,
   (SELECT count(*) FROM playlist_songs ps WHERE ps.playlist_id = p.id) AS songCount,
   (SELECT coalesce(sum(s.duration_ms), 0) FROM playlist_songs ps JOIN songs s ON s.id = ps.song_id
    WHERE ps.playlist_id = p.id AND s.is_available = 1) AS totalDurationMs,

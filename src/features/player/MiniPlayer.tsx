@@ -1,5 +1,5 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { router } from 'expo-router';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Animated, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 
@@ -91,10 +91,6 @@ function Controls({ compact }: { compact?: boolean }) {
   );
 }
 
-function open() {
-  router.push('/player');
-}
-
 /** iOS 26 accessory content. The system draws the glass capsule; this fills it. */
 function AccessoryContent({ item }: { item: QueueItem }) {
   const local = useStyles();
@@ -105,27 +101,33 @@ function AccessoryContent({ item }: { item: QueueItem }) {
   return (
     <View style={local.accessory}>
       <Animated.View style={[local.flexRow, swipe.style]} {...swipe.handlers}>
-        <Pressable
-          style={local.accessoryInfo}
-          onPress={open}
-          accessibilityRole="button"
-          accessibilityLabel={`Now playing: ${item.title}, ${item.artist}. Opens the player.`}
-          accessibilityHint="Swipe left or right to change songs"
-        >
-          {inline ? null : (
-            <AlbumArtwork albumId={item.albumId} artworkKey={item.artworkUri} size={32} placeholderIcon="song" />
-          )}
-          <View style={local.text}>
-            <Text variant={inline ? 'footnote' : 'subhead'} numberOfLines={1} style={local.title}>
-              {item.title}
-            </Text>
+        {/* A Link so iOS can zoom the artwork into Now Playing (and back when it closes). */}
+        <Link href="/player" asChild>
+          <Pressable
+            style={local.accessoryInfo}
+            accessibilityRole="button"
+            accessibilityLabel={`Now playing: ${item.title}, ${item.artist}. Opens the player.`}
+            accessibilityHint="Swipe left or right to change songs"
+          >
             {inline ? null : (
-              <Text variant="caption" color="secondary" numberOfLines={1}>
-                {item.artist}
-              </Text>
+              <Link.AppleZoom>
+                <View>
+                  <AlbumArtwork albumId={item.albumId} artworkKey={item.artworkUri} size={32} placeholderIcon="song" />
+                </View>
+              </Link.AppleZoom>
             )}
-          </View>
-        </Pressable>
+            <View style={local.text}>
+              <Text variant={inline ? 'footnote' : 'subhead'} numberOfLines={1} style={local.title}>
+                {item.title}
+              </Text>
+              {inline ? null : (
+                <Text variant="caption" color="secondary" numberOfLines={1}>
+                  {item.artist}
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        </Link>
       </Animated.View>
       <Controls compact />
     </View>
@@ -139,6 +141,7 @@ type Props = {
 
 /** The song that's playing, above the tab bar. Tap to open Now Playing; swipe to change songs. */
 export function MiniPlayer({ variant = 'floating' }: Props) {
+  const theme = useTheme();
   const item = useCurrentItem();
 
   if (!item) {
@@ -150,42 +153,56 @@ export function MiniPlayer({ variant = 'floating' }: Props) {
     return <AccessoryContent item={item} />;
   }
 
-  // Elsewhere the bar takes the song's color (the Solid player theme, so text stays readable).
+  // Light themes: a clean card in the app's own colors (a dark artwork tint would look like dark
+  // mode leaking in). Dark themes: the bar takes the song's color (the Solid player theme, so text
+  // stays readable).
+  if (theme.scheme === 'light') {
+    return <FloatingMiniPlayer item={item} background={theme.colors.card} />;
+  }
   return (
     <PlayerThemeProvider item={item} themeId="solid">
-      <FloatingMiniPlayer item={item} />
+      <TintedMiniPlayer item={item} />
     </PlayerThemeProvider>
   );
 }
 
-function FloatingMiniPlayer({ item }: { item: QueueItem }) {
+function TintedMiniPlayer({ item }: { item: QueueItem }) {
+  const { tokens } = usePlayerTheme();
+  return <FloatingMiniPlayer item={item} background={tokens.background} />;
+}
+
+function FloatingMiniPlayer({ item, background }: { item: QueueItem; background: string }) {
   const theme = useTheme();
   const local = useStyles();
   const swipe = useSwipeToSkip();
-  const { tokens } = usePlayerTheme();
 
   return (
     <View style={[local.floatingWrap, theme.shadows.card]}>
-      <Surface variant="tonal" style={[local.floating, { backgroundColor: tokens.background }]}>
+      <Surface variant="tonal" style={[local.floating, { backgroundColor: background }]}>
         <View style={local.row}>
           <Animated.View style={[local.flexRow, swipe.style]} {...swipe.handlers}>
-            <Pressable
-              style={local.info}
-              onPress={open}
-              accessibilityRole="button"
-              accessibilityLabel={`Now playing: ${item.title}, ${item.artist}. Opens the player.`}
-              accessibilityHint="Swipe left or right to change songs"
-            >
-              <AlbumArtwork albumId={item.albumId} artworkKey={item.artworkUri} size={40} placeholderIcon="song" />
-              <View style={local.text}>
-                <Text variant="subhead" numberOfLines={1} style={local.title}>
-                  {item.title}
-                </Text>
-                <Text variant="footnote" color="secondary" numberOfLines={1}>
-                  {item.artist}
-                </Text>
-              </View>
-            </Pressable>
+            <Link href="/player" asChild>
+              <Pressable
+                style={local.info}
+                accessibilityRole="button"
+                accessibilityLabel={`Now playing: ${item.title}, ${item.artist}. Opens the player.`}
+                accessibilityHint="Swipe left or right to change songs"
+              >
+                <Link.AppleZoom>
+                  <View>
+                    <AlbumArtwork albumId={item.albumId} artworkKey={item.artworkUri} size={40} placeholderIcon="song" />
+                  </View>
+                </Link.AppleZoom>
+                <View style={local.text}>
+                  <Text variant="subhead" numberOfLines={1} style={local.title}>
+                    {item.title}
+                  </Text>
+                  <Text variant="footnote" color="secondary" numberOfLines={1}>
+                    {item.artist}
+                  </Text>
+                </View>
+              </Pressable>
+            </Link>
           </Animated.View>
           <Controls />
         </View>

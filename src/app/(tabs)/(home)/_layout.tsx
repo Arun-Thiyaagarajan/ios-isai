@@ -30,6 +30,7 @@ export default function HomeStack() {
         <Stack.Screen name="recent" options={{ title: 'Recently Played', headerLargeTitle: true }} />
         <Stack.Screen name="most-played" options={{ title: 'Most Played', headerLargeTitle: true }} />
         <Stack.Screen name="favorites" options={{ title: 'Favorites', headerLargeTitle: true }} />
+        <Stack.Screen name="stats" options={{ title: 'Your Listening', headerLargeTitle: true }} />
         <Stack.Screen name="albums" options={{ title: 'Albums', headerLargeTitle: true }} />
         {/* Titles for these are set by the screens once their data loads. */}
         <Stack.Screen name="album/[id]" options={{ title: '' }} />

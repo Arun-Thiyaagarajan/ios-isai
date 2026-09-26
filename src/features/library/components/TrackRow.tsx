@@ -2,7 +2,7 @@ import { memo, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import type { TrackItem } from '@/db/repos/browse';
-import { IconButton, ListRow, Text, makeStyles, useTheme } from '@/design';
+import { Icon, IconButton, ListRow, Text, makeStyles, useTheme } from '@/design';
 import { formatDuration } from '@/lib/format';
 
 import { usePlayerStore } from '@/features/player/playerStore';
@@ -29,6 +29,8 @@ type Props = {
   /** Screen-reader actions for moving the row while reordering. */
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  /** While selecting songs: whether this one is ticked (undefined = not selecting). */
+  selected?: boolean;
 };
 
 export const TrackRow = memo(function TrackRow({
@@ -43,11 +45,14 @@ export const TrackRow = memo(function TrackRow({
   reorderHandle,
   onMoveUp,
   onMoveDown,
+  selected,
 }: Props) {
   const theme = useTheme();
   const styles = useStyles();
   // Only rows whose "is playing" answer changes re-render when the song changes.
   const isCurrent = usePlayerStore((s) => s.queue.items[s.queue.index]?.songId === track.id);
+
+  const selecting = selected !== undefined;
 
   const subtitle = note
     ? note
@@ -60,8 +65,9 @@ export const TrackRow = memo(function TrackRow({
       title={track.title}
       subtitle={subtitle}
       onPress={onPress}
-      onLongPress={reorderHandle ? undefined : onMore}
-      active={active ?? isCurrent}
+      onLongPress={reorderHandle || selecting ? undefined : onMore}
+      active={selecting ? selected : (active ?? isCurrent)}
+      accessibilityState={selecting ? { selected } : undefined}
       accessibilityActions={[
         ...(onMore && !reorderHandle ? [{ name: 'longpress', label: 'More actions' }] : []),
         ...(onMoveUp ? [{ name: 'moveUp', label: 'Move up' }] : []),
@@ -74,20 +80,27 @@ export const TrackRow = memo(function TrackRow({
       }}
       accessibilityLabel={`${track.title}, ${track.artist}, ${formatDuration(track.durationMs)}`}
       leading={
-        leading === 'artwork' ? (
-          <AlbumArtwork
-            albumId={track.albumId}
-            artworkKey={track.artworkKey}
-            size={theme.sizes.artworkRow}
-            placeholderIcon="song"
-          />
-        ) : (
-          <View style={styles.number}>
-            <Text variant="callout" color="tertiary" tabular>
-              {track.trackNo ?? '–'}
-            </Text>
-          </View>
-        )
+        <View style={styles.leading}>
+          {selecting ? (
+            <View style={[styles.check, selected && { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent }]}>
+              {selected ? <Icon name="check" size={13} color={theme.colors.onAccent} /> : null}
+            </View>
+          ) : null}
+          {leading === 'artwork' ? (
+            <AlbumArtwork
+              albumId={track.albumId}
+              artworkKey={track.artworkKey}
+              size={theme.sizes.artworkRow}
+              placeholderIcon="song"
+            />
+          ) : (
+            <View style={styles.number}>
+              <Text variant="callout" color="tertiary" tabular>
+                {track.trackNo ?? '–'}
+              </Text>
+            </View>
+          )}
+        </View>
       }
       trailing={
         <View style={styles.trailing}>
@@ -95,7 +108,7 @@ export const TrackRow = memo(function TrackRow({
             {formatDuration(track.durationMs)}
           </Text>
           {reorderHandle ??
-            (onMore ? (
+            (onMore && !selecting ? (
               <IconButton icon="more" label={`More actions for ${track.title}`} onPress={onMore} size={36} iconSize={theme.sizes.icon.md} />
             ) : null)}
         </View>
@@ -109,6 +122,20 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing.xxs,
+  },
+  leading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing.md,
+  },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: t.colors.textTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   number: {
     width: t.spacing.xxxl,
