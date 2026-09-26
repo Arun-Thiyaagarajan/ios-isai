@@ -5,6 +5,11 @@ import { importPlaylistFile } from '@/features/transfer/fileTransfer';
 import { stackScreenOptions } from '@/features/shell/stackOptions';
 import { TabStackFrame } from '@/features/shell/TabStackFrame';
 
+/** A page restored on launch (or opened from a link) keeps this tab's first page behind it. */
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function PlaylistsStack() {
   return (
     <TabStackFrame>

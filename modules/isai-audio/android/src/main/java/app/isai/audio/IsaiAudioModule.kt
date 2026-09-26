@@ -208,6 +208,19 @@ class IsaiAudioModule : Module() {
       runCatching { context.startActivity(intent) }.isSuccess
     }.runOnQueue(Queues.MAIN)
 
+    /** A queued song's artwork changed; refresh the notification and lock screen. */
+    AsyncFunction("updateArtwork") { key: String, uri: String ->
+      withController { c ->
+        for (i in 0 until c.mediaItemCount) {
+          val item = c.getMediaItemAt(i)
+          if (item.mediaId != key) continue
+          val metadata = item.mediaMetadata.buildUpon().setArtworkUri(Uri.parse(uri)).build()
+          // Same media, new metadata: Media3 swaps it in without interrupting playback.
+          c.replaceMediaItem(i, item.buildUpon().setMediaMetadata(metadata).build())
+        }
+      }
+    }.runOnQueue(Queues.MAIN)
+
     /** Equalizer, bass boost, overall gain and levelling mode; applies to the playing song at once. */
     AsyncFunction("setAudioEffects") { effects: AudioEffectsRecord ->
       AudioEffects.update(

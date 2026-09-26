@@ -79,6 +79,8 @@ type IsaiAudioModule = {
   skipToPrevious(): Promise<void>;
   skipTo(index: number): Promise<void>;
   setRepeatMode(mode: NativeRepeatMode): Promise<void>;
+  /** Replaces a queued song's artwork (lock screen, notification); missing in older builds. */
+  updateArtwork?(key: string, artworkUri: string): Promise<void>;
   /** Equalizer, bass boost, overall gain and levelling mode; missing in older builds. */
   setAudioEffects?(effects: NativeAudioEffects): Promise<void>;
   /** Show or hide the lock screen / notification player; missing in older builds. */

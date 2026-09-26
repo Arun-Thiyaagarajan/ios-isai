@@ -10,6 +10,11 @@ import { TabStackFrame } from '@/features/shell/TabStackFrame';
 // On iOS, music comes from folders the user picks; Android reads the whole device automatically.
 const canAddFolders = Platform.OS === 'ios' && isLibraryAvailable;
 
+/** A page restored on launch (or opened from a link) keeps this tab's first page behind it. */
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function LibraryStack() {
   return (
     <TabStackFrame>

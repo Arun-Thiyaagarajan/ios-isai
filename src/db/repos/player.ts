@@ -124,3 +124,18 @@ export function saveReplayGain(
     WHERE id = ${songId}
   `);
 }
+
+/**
+ * A song's artwork as the library has it now: its own cover (Edit Info), else its album's
+ * thumbnail. `albumKey` is null when the album thumbnail hasn't been generated yet, "" for none.
+ */
+export function getSongArtwork(
+  db: AppDatabase,
+  songId: number,
+): { override: string | null; albumKey: string | null } | undefined {
+  return db.get<{ override: string | null; albumKey: string | null }>(sql`
+    SELECT s.artwork_override AS override, a.artwork_key AS albumKey
+    FROM songs s LEFT JOIN albums a ON a.id = s.album_id
+    WHERE s.id = ${songId}
+  `);
+}

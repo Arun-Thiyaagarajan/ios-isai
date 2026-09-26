@@ -12,7 +12,7 @@ struct QueueEntry {
   let title: String
   let artist: String
   let album: String?
-  let artworkUri: String?
+  var artworkUri: String?
   let durationMs: Double
   /// Volume levelling (ReplayGain) for this song, dB; 0 when the file has no tags.
   let trackGainDb: Double
@@ -216,6 +216,16 @@ final class PlaybackEngine: NSObject {
     }
   }
 
+  /// A queued song's artwork changed (e.g. its thumbnail was just made); refresh the lock screen.
+  func updateArtwork(key: String, uri: String) {
+    for i in entries.indices where entries[i].key == key {
+      entries[i].artworkUri = uri
+    }
+    if entries.indices.contains(index), entries[index].key == key {
+      updateNowPlayingInfo()
+    }
+  }
+
   func setRepeat(_ mode: String) {
     repeatMode = mode
     emitState()
@@ -339,6 +349,29 @@ final class PlaybackEngine: NSObject {
       player.pause()
       emitState()
     }
+  }
+
+  /**
+   * A saved file URL, found again if needed. iOS moves the app's folder when a new build is
+   * installed, so saved absolute paths go stale; the file keeps its place inside Caches or
+   * Documents, so look for it there in today's folder.
+   */
+  static func localFile(_ uri: String) -> URL? {
+    guard let url = URL(string: uri), url.isFileURL else { return nil }
+    let fileManager = FileManager.default
+    if fileManager.fileExists(atPath: url.path) { return url }
+    let bases: [(marker: String, directory: FileManager.SearchPathDirectory)] = [
+      ("/Library/Caches/", .cachesDirectory),
+      ("/Documents/", .documentDirectory),
+    ]
+    for base in bases {
+      guard let range = url.path.range(of: base.marker),
+            let root = fileManager.urls(for: base.directory, in: .userDomainMask).first
+      else { continue }
+      let candidate = root.appendingPathComponent(String(url.path[range.upperBound...]))
+      if fileManager.fileExists(atPath: candidate.path) { return candidate }
+    }
+    return nil
   }
 
   private func stop() {
@@ -490,7 +523,7 @@ final class PlaybackEngine: NSObject {
     if let cached = artworkCache, cached.uri == uri {
       return cached.artwork
     }
-    guard let url = URL(string: uri), let image = UIImage(contentsOfFile: url.path) else { return nil }
+    guard let url = Self.localFile(uri), let image = UIImage(contentsOfFile: url.path) else { return nil }
     let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     artworkCache = (uri, artwork)
     return artwork
