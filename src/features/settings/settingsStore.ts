@@ -2,25 +2,27 @@ import { create } from 'zustand';
 
 import { readAllSettings, writeSetting } from '@/db/repos/settings';
 import type { AppDatabase } from '@/db/types';
-import type { ThemePreference } from '@/design';
+import { themes, type ThemeName } from '@/design';
 
 export type Settings = {
-  themePreference: ThemePreference;
-  oledBlack: boolean;
+  /** App theme (Pure Black, Midnight, Aurora or Pearl). */
+  theme: ThemeName;
+  /** Follow the phone: Pearl in light mode, the chosen dark theme in dark mode. */
+  matchSystem: boolean;
   /** Look for new, changed or deleted music every time Isai opens. */
   autoScan: boolean;
 };
 
 export const settingsDefaults: Settings = {
-  themePreference: 'system',
-  oledBlack: false,
+  theme: 'midnight',
+  matchSystem: true,
   autoScan: true,
 };
 
 /** Guards against stored values from older versions or corrupted rows. */
 const validators: { [K in keyof Settings]: (value: unknown) => value is Settings[K] } = {
-  themePreference: (v): v is ThemePreference => v === 'system' || v === 'light' || v === 'dark',
-  oledBlack: (v): v is boolean => typeof v === 'boolean',
+  theme: (v): v is ThemeName => typeof v === 'string' && v in themes,
+  matchSystem: (v): v is boolean => typeof v === 'boolean',
   autoScan: (v): v is boolean => typeof v === 'boolean',
 };
 

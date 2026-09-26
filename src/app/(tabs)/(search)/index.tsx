@@ -1,14 +1,11 @@
-import { EmptyState } from '@/design';
-import { TabScreen } from '@/features/shell/TabScreen';
+import { EmptyScreen } from '@/design';
 
 export default function SearchScreen() {
   return (
-    <TabScreen>
-      <EmptyState
-        icon="search"
-        title="Search your music"
-        message="Find songs, artists, albums and playlists."
-      />
-    </TabScreen>
+    <EmptyScreen
+      icon="search"
+      title="Search your music"
+      message="Find songs, artists, albums and playlists."
+    />
   );
 }

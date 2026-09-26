@@ -53,6 +53,8 @@ export const icons = {
   add: { ios: 'plus', android: 'add' },
   check: { ios: 'checkmark', android: 'check' },
   delete: { ios: 'trash', android: 'delete' },
+  remove: { ios: 'minus.circle', android: 'remove_circle_outline' },
+  playlistNew: { ios: 'plus', android: 'add' },
   sort: { ios: 'arrow.up.arrow.down', android: 'sort' },
   refresh: { ios: 'arrow.clockwise', android: 'refresh' },
   grid: { ios: 'square.grid.2x2', android: 'grid_view' },

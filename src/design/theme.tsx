@@ -1,26 +1,24 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { StyleSheet, useColorScheme, useWindowDimensions } from 'react-native';
+import { StyleSheet, useColorScheme, useWindowDimensions, type ColorSchemeName } from 'react-native';
 
 import {
   gutter,
   motion,
-  palettes,
   radius,
   shadows,
   sizes,
   spacing,
+  themes,
   typography,
   type ColorPalette,
-  type PaletteName,
+  type ThemeName,
 } from './tokens';
 
-export type ThemePreference = 'system' | 'light' | 'dark';
-
 export type Theme = {
+  name: ThemeName;
   scheme: 'light' | 'dark';
-  paletteName: PaletteName;
   colors: ColorPalette;
   spacing: typeof spacing;
   radius: typeof radius;
@@ -34,28 +32,44 @@ export type Theme = {
 
 const ThemeContext = createContext<Theme | null>(null);
 
+/**
+ * Which theme to show. With `matchSystem`, the phone's light mode shows Pearl and dark mode shows
+ * the chosen theme (or Midnight when Pearl is the choice).
+ */
+export function resolveThemeName(
+  chosen: ThemeName,
+  matchSystem: boolean,
+  systemScheme: ColorSchemeName | null | undefined,
+): ThemeName {
+  if (!matchSystem) {
+    return chosen;
+  }
+  if (systemScheme === 'light') {
+    return 'pearl';
+  }
+  return themes[chosen].scheme === 'dark' ? chosen : 'midnight';
+}
+
 type Props = {
   children: ReactNode;
   /** The user's choice; stored by the settings feature, not here. */
-  preference?: ThemePreference;
-  /** Use the true-black palette in dark mode. */
-  oledBlack?: boolean;
+  themeName?: ThemeName;
+  matchSystem?: boolean;
 };
 
-export function ThemeProvider({ children, preference = 'system', oledBlack = false }: Props) {
+export function ThemeProvider({ children, themeName = 'midnight', matchSystem = false }: Props) {
   const systemScheme = useColorScheme();
   const { width } = useWindowDimensions();
 
-  const scheme: 'light' | 'dark' =
-    preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
-  const paletteName: PaletteName = scheme === 'light' ? 'light' : oledBlack ? 'oled' : 'dark';
+  const definition = themes[resolveThemeName(themeName, matchSystem, systemScheme)];
+  const scheme = definition.scheme;
   const screenGutter = width >= gutter.wideFromWidth ? gutter.wide : gutter.default;
 
   const theme = useMemo<Theme>(
     () => ({
+      name: definition.name,
       scheme,
-      paletteName,
-      colors: palettes[paletteName],
+      colors: definition.colors,
       spacing,
       radius,
       typography,
@@ -64,7 +78,7 @@ export function ThemeProvider({ children, preference = 'system', oledBlack = fal
       motion,
       gutter: screenGutter,
     }),
-    [scheme, paletteName, screenGutter],
+    [definition, scheme, screenGutter],
   );
 
   // Root view background shows during screen transitions and keyboard animations.

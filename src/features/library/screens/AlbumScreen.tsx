@@ -6,8 +6,12 @@ import { Pressable, View, useWindowDimensions } from 'react-native';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { getAlbum, listAlbumTracks, type AlbumDetail, type TrackItem } from '@/db/repos/browse';
-import { EmptyState, Text, makeStyles, useTheme } from '@/design';
+import { EmptyScreen, makeStyles, Text, useTheme } from '@/design';
 import { formatCount } from '@/lib/format';
+
+import { playSongs } from '@/features/player/playerService';
+import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
+import { openSongActions } from '@/features/player/songActions';
 
 import { AlbumArtwork } from '../components/AlbumArtwork';
 import { TrackRow } from '../components/TrackRow';
@@ -39,7 +43,7 @@ function formatMinutes(ms: number): string {
   return minutes >= 60 ? `${Math.floor(minutes / 60)} hr ${minutes % 60} min` : `${minutes} min`;
 }
 
-function AlbumHeader({ album }: { album: AlbumDetail }) {
+function AlbumHeader({ album, songIds }: { album: AlbumDetail; songIds: number[] }) {
   const theme = useTheme();
   const styles = useStyles();
   const browse = useBrowse();
@@ -80,6 +84,9 @@ function AlbumHeader({ album }: { album: AlbumDetail }) {
       <Text variant="footnote" color="secondary" align="center">
         {meta}
       </Text>
+      <View style={styles.buttons}>
+        <PlayShuffleButtons songIds={songIds} />
+      </View>
     </View>
   );
 }
@@ -96,9 +103,10 @@ export function AlbumScreen() {
   });
 
   if (album.data === null) {
-    return <EmptyState icon="album" title="Album not found" message="It may have been removed from your library." />;
+    return <EmptyScreen icon="album" title="Album not found" message="It may have been removed from your library." />;
   }
 
+  const playableIds = (tracks.data ?? []).filter((t) => t.isPlayable).map((t) => t.id);
   // Only compilations need the artist on every row.
   const variousArtists = new Set(tracks.data?.map((t) => t.artist)).size > 1;
 
@@ -109,14 +117,25 @@ export function AlbumScreen() {
         data={withDiscHeaders(tracks.data ?? [])}
         keyExtractor={(item) => (item.kind === 'disc' ? `d${item.disc}` : String(item.track.id))}
         getItemType={(item) => item.kind}
-        ListHeaderComponent={album.data ? <AlbumHeader album={album.data} /> : null}
+        ListHeaderComponent={album.data ? <AlbumHeader album={album.data} songIds={playableIds} /> : null}
         renderItem={({ item }) =>
           item.kind === 'disc' ? (
             <Text variant="footnote" color="secondary" style={styles.disc}>
               DISC {item.disc}
             </Text>
           ) : (
-            <TrackRow track={item.track} leading="number" showAlbum={false} showArtist={variousArtists} />
+            <TrackRow
+              track={item.track}
+              leading="number"
+              showAlbum={false}
+              showArtist={variousArtists}
+              onPress={
+                item.track.isPlayable
+                  ? () => playSongs(playableIds, playableIds.indexOf(item.track.id))
+                  : undefined
+              }
+              onMore={() => openSongActions(item.track.id)}
+            />
           )
         }
         contentInsetAdjustmentBehavior="automatic"
@@ -138,6 +157,10 @@ const useStyles = makeStyles((t) => ({
   artworkShadow: {
     marginBottom: t.spacing.lg,
     ...t.shadows.artwork,
+  },
+  buttons: {
+    alignSelf: 'stretch',
+    marginTop: t.spacing.md,
   },
   disc: {
     paddingHorizontal: t.gutter,

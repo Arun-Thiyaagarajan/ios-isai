@@ -6,8 +6,12 @@ import { ScrollView, View } from 'react-native';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { getArtist, listArtistAlbums, listArtistSongs, type AlbumSummary, type ArtistSummary } from '@/db/repos/browse';
-import { EmptyState, SectionHeader, Text, makeStyles, useTheme } from '@/design';
+import { EmptyScreen, makeStyles, SectionHeader, Text, useTheme } from '@/design';
 import { formatCount } from '@/lib/format';
+
+import { playSongs } from '@/features/player/playerService';
+import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
+import { openSongActions } from '@/features/player/songActions';
 
 import { AlbumArtwork } from '../components/AlbumArtwork';
 import { AlbumTile } from '../components/AlbumTile';
@@ -17,7 +21,15 @@ import { useBrowse } from '../navigation';
 const ARTIST_ARTWORK = 160;
 const ALBUM_TILE_WIDTH = 150;
 
-function ArtistHeader({ artist, albums }: { artist: ArtistSummary; albums: AlbumSummary[] }) {
+function ArtistHeader({
+  artist,
+  albums,
+  songIds,
+}: {
+  artist: ArtistSummary;
+  albums: AlbumSummary[];
+  songIds: number[];
+}) {
   const styles = useStyles();
   const browse = useBrowse();
 
@@ -37,6 +49,9 @@ function ArtistHeader({ artist, albums }: { artist: ArtistSummary; albums: Album
         <Text variant="footnote" color="secondary" align="center">
           {formatCount(albums.length, 'album')} · {formatCount(artist.songCount, 'song')}
         </Text>
+        <View style={styles.buttons}>
+          <PlayShuffleButtons songIds={songIds} />
+        </View>
       </View>
 
       {albums.length > 0 ? (
@@ -69,8 +84,10 @@ export function ArtistScreen() {
     queryFn: () => listArtistSongs(db, artistId),
   });
 
+  const playableIds = (songs.data ?? []).filter((s) => s.isPlayable).map((s) => s.id);
+
   if (artist.data === null) {
-    return <EmptyState icon="artist" title="Artist not found" message="They may have been removed from your library." />;
+    return <EmptyScreen icon="artist" title="Artist not found" message="They may have been removed from your library." />;
   }
 
   return (
@@ -80,9 +97,18 @@ export function ArtistScreen() {
         data={songs.data ?? []}
         keyExtractor={(song) => String(song.id)}
         ListHeaderComponent={
-          artist.data ? <ArtistHeader artist={artist.data} albums={albums.data ?? []} /> : null
+          artist.data ? (
+            <ArtistHeader artist={artist.data} albums={albums.data ?? []} songIds={playableIds} />
+          ) : null
         }
-        renderItem={({ item }) => <TrackRow track={item} showArtist={false} />}
+        renderItem={({ item }) => (
+          <TrackRow
+            track={item}
+            showArtist={false}
+            onPress={item.isPlayable ? () => playSongs(playableIds, playableIds.indexOf(item.id)) : undefined}
+            onMore={() => openSongActions(item.id)}
+          />
+        )}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.bottom}
         style={{ backgroundColor: theme.colors.bg }}
@@ -97,6 +123,10 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing.sm,
     paddingHorizontal: t.gutter,
     paddingTop: t.spacing.lg,
+  },
+  buttons: {
+    alignSelf: 'stretch',
+    marginTop: t.spacing.sm,
   },
   carousel: {
     paddingHorizontal: t.gutter,

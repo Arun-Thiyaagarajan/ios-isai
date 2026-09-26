@@ -1,11 +1,11 @@
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
 import { useTheme } from '../theme';
-import type { ColorPalette, TypeRoleName } from '../tokens';
+import type { ColorName, TypeRoleName } from '../tokens';
 
 export type TextColor = 'primary' | 'secondary' | 'tertiary' | 'accent' | 'onAccent' | 'danger';
 
-const colorKey: Record<TextColor, keyof ColorPalette> = {
+const colorKey: Record<TextColor, ColorName> = {
   primary: 'textPrimary',
   secondary: 'textSecondary',
   tertiary: 'textTertiary',

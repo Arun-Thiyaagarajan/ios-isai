@@ -3,6 +3,10 @@ import { Platform } from 'react-native';
 
 import { useTheme } from '@/design';
 import { icons } from '@/design/icons';
+import { MiniPlayer } from '@/features/player/MiniPlayer';
+import { usePlayerStore } from '@/features/player/playerStore';
+
+import { usesTabBarAccessory } from './TabStackFrame';
 
 /**
  * The app's bottom tab bar.
@@ -15,13 +19,14 @@ import { icons } from '@/design/icons';
 export function AppTabs() {
   const theme = useTheme();
   const android = Platform.OS === 'android';
+  const hasQueue = usePlayerStore((s) => s.queue.items.length > 0);
 
   return (
     <NativeTabs
       minimizeBehavior="onScrollDown"
       tintColor={theme.colors.accent}
-      backgroundColor={android ? theme.colors.bgElevated : undefined}
-      iconColor={android ? { default: theme.colors.textSecondary, selected: theme.colors.accentText } : undefined}
+      backgroundColor={android ? theme.colors.navBg : undefined}
+      iconColor={android ? { default: theme.colors.iconSecondary, selected: theme.colors.accentText } : undefined}
     >
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: icons.home.ios }} md={icons.home.android} />
@@ -40,6 +45,13 @@ export function AppTabs() {
         <NativeTabs.Trigger.Icon sf={icons.playlists.ios} md={icons.playlists.android} />
         <NativeTabs.Trigger.Label>Playlists</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+
+      {/* iOS 26: the mini player lives in the tab bar's glass accessory, drawn by the system. */}
+      {usesTabBarAccessory && hasQueue ? (
+        <NativeTabs.BottomAccessory>
+          <MiniPlayer variant="accessory" />
+        </NativeTabs.BottomAccessory>
+      ) : null}
 
       {/* role="search" gives the separated trailing search button on iOS 26. */}
       <NativeTabs.Trigger name="(search)" role="search">

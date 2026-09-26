@@ -6,8 +6,12 @@ import { View } from 'react-native';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { getGenre, listGenreSongs } from '@/db/repos/browse';
-import { EmptyState, Text, makeStyles, useTheme } from '@/design';
+import { EmptyScreen, makeStyles, Text, useTheme } from '@/design';
 import { formatCount } from '@/lib/format';
+
+import { playSongs } from '@/features/player/playerService';
+import { PlayShuffleButtons } from '@/features/player/PlayShuffleButtons';
+import { openSongActions } from '@/features/player/songActions';
 
 import { TrackRow } from '../components/TrackRow';
 
@@ -22,8 +26,10 @@ export function GenreScreen() {
     queryFn: () => listGenreSongs(db, genreId),
   });
 
+  const playableIds = (songs.data ?? []).filter((s) => s.isPlayable).map((s) => s.id);
+
   if (genre.data === null) {
-    return <EmptyState icon="genre" title="Genre not found" />;
+    return <EmptyScreen icon="genre" title="Genre not found" />;
   }
 
   return (
@@ -34,12 +40,19 @@ export function GenreScreen() {
         keyExtractor={(song) => String(song.id)}
         ListHeaderComponent={
           <View style={styles.header}>
+            <PlayShuffleButtons songIds={playableIds} />
             <Text variant="footnote" color="secondary">
               {formatCount(songs.data?.length ?? 0, 'song')}
             </Text>
           </View>
         }
-        renderItem={({ item }) => <TrackRow track={item} />}
+        renderItem={({ item }) => (
+          <TrackRow
+            track={item}
+            onPress={item.isPlayable ? () => playSongs(playableIds, playableIds.indexOf(item.id)) : undefined}
+            onMore={() => openSongActions(item.id)}
+          />
+        )}
         contentInsetAdjustmentBehavior="automatic"
         style={{ backgroundColor: theme.colors.bg }}
       />
@@ -51,5 +64,6 @@ const useStyles = makeStyles((t) => ({
   header: {
     paddingHorizontal: t.gutter,
     paddingVertical: t.spacing.sm,
+    gap: t.spacing.md,
   },
 }));

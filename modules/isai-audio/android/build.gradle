@@ -1,0 +1,26 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.isai.audio'
+version = '0.1.0'
+
+android {
+  namespace "app.isai.audio"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Media3: ExoPlayer for decoding/playback, session for the notification, lock screen,
+  // Bluetooth/headset buttons and audio focus.
+  def media3 = "1.11.1"
+  implementation "androidx.media3:media3-exoplayer:$media3"
+  implementation "androidx.media3:media3-session:$media3"
+}

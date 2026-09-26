@@ -264,3 +264,113 @@ export function listFolderSongs(db: AppDatabase, path: string): TrackItem[] {
     `),
   );
 }
+
+// ─── Playlists & favorites ──────────────────────────────────────────────────
+
+export type PlaylistSummary = {
+  id: number;
+  name: string;
+  songCount: number;
+  totalDurationMs: number;
+  /** Artwork of the first song, used as the playlist cover. */
+  albumId: number | null;
+  artworkKey: string | null;
+};
+
+const playlistSummaryColumns = sql`
+  p.id AS id, p.name AS name,
+  (SELECT count(*) FROM playlist_songs ps WHERE ps.playlist_id = p.id) AS songCount,
+  (SELECT coalesce(sum(s.duration_ms), 0) FROM playlist_songs ps JOIN songs s ON s.id = ps.song_id
+   WHERE ps.playlist_id = p.id AND s.is_available = 1) AS totalDurationMs,
+  first.album_id AS albumId, al.artwork_key AS artworkKey
+`;
+
+const playlistFirstSong = sql`
+  LEFT JOIN songs first ON first.id = (
+    SELECT ps.song_id FROM playlist_songs ps JOIN songs s ON s.id = ps.song_id
+    WHERE ps.playlist_id = p.id AND s.is_available = 1 ORDER BY ps.position LIMIT 1
+  )
+  LEFT JOIN albums al ON al.id = first.album_id
+`;
+
+export function listPlaylistSummaries(db: AppDatabase): PlaylistSummary[] {
+  return db.all<PlaylistSummary>(sql`
+    SELECT ${playlistSummaryColumns} FROM playlists p ${playlistFirstSong}
+    ORDER BY lower(p.name), p.id
+  `);
+}
+
+export function getPlaylistSummary(db: AppDatabase, playlistId: number): PlaylistSummary | undefined {
+  return db.get<PlaylistSummary>(sql`
+    SELECT ${playlistSummaryColumns} FROM playlists p ${playlistFirstSong} WHERE p.id = ${playlistId}
+  `);
+}
+
+/** A playlist entry: a song, or a placeholder when the file is missing (it may come back). */
+export type PlaylistTrack = TrackItem & { entryId: number; missing: boolean };
+
+export function listPlaylistTracks(db: AppDatabase, playlistId: number): PlaylistTrack[] {
+  const rows = db.all<
+    Omit<PlaylistTrack, 'isPlayable' | 'missing'> & { isPlayable: number | null; available: number | null; fingerprint: string }
+  >(sql`
+    SELECT ps.id AS entryId, ps.song_fingerprint AS fingerprint, s.is_available AS available,
+           s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
+           s.track_no AS trackNo, s.disc_no AS discNo, s.duration_ms AS durationMs,
+           s.is_playable AS isPlayable, a.artwork_key AS artworkKey
+    FROM playlist_songs ps
+    LEFT JOIN songs s ON s.id = ps.song_id
+    LEFT JOIN albums a ON a.id = s.album_id
+    WHERE ps.playlist_id = ${playlistId}
+    ORDER BY ps.position
+  `);
+  return rows.map(({ fingerprint, available, ...row }) => {
+    const missing = row.id === null || !available;
+    return {
+      ...row,
+      // Missing entries still need a unique, stable key for lists.
+      id: missing ? -row.entryId : row.id,
+      title: row.title ?? fingerprint.split('|')[0] ?? 'Missing song',
+      artist: row.artist ?? '',
+      durationMs: row.durationMs ?? 0,
+      isPlayable: !missing && Boolean(row.isPlayable),
+      missing,
+    };
+  });
+}
+
+export function listFavoriteSongs(db: AppDatabase): TrackItem[] {
+  return mapTracks(
+    db.all(sql`
+      SELECT ${trackColumns} FROM favorites f
+      JOIN songs s ON s.id = f.entity_id
+      LEFT JOIN albums a ON a.id = s.album_id
+      WHERE f.entity_type = 'song' AND s.is_available = 1
+      ORDER BY f.created_at DESC
+    `),
+  );
+}
+
+// ─── Single song ────────────────────────────────────────────────────────────
+
+export type SongInfo = {
+  id: number;
+  title: string;
+  artist: string;
+  album: string | null;
+  albumId: number | null;
+  artistId: number | null;
+  artworkKey: string | null;
+  isFavorite: boolean;
+};
+
+export function getSongInfo(db: AppDatabase, songId: number): SongInfo | undefined {
+  const row = db.get<Omit<SongInfo, 'isFavorite'> & { isFavorite: number }>(sql`
+    SELECT s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
+      (SELECT artist_id FROM song_artists WHERE song_id = s.id AND role = 'artist' ORDER BY position LIMIT 1) AS artistId,
+      a.artwork_key AS artworkKey,
+      EXISTS (SELECT 1 FROM favorites WHERE entity_type = 'song' AND entity_id = s.id) AS isFavorite
+    FROM songs s LEFT JOIN albums a ON a.id = s.album_id
+    WHERE s.id = ${songId}
+  `);
+  return row ? { ...row, isFavorite: Boolean(row.isFavorite) } : undefined;
+}

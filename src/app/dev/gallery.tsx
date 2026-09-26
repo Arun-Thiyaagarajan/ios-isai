@@ -52,7 +52,9 @@ export default function DesignGallery() {
 
       <SectionHeader title="Colors" />
       <View style={[styles.block, styles.wrap]}>
-        {Object.entries(theme.colors).map(([name, value]) => (
+        {Object.entries(theme.colors)
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+          .map(([name, value]) => (
           <View key={name} style={styles.swatchItem}>
             <View style={[styles.swatch, { backgroundColor: value }]} />
             <Text variant="caption" color="secondary" numberOfLines={1}>

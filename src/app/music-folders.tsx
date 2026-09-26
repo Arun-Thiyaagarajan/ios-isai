@@ -6,14 +6,15 @@ import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { listMusicFolders, listRoots, setFolderExcluded } from '@/db/repos/library';
 import {
+  EmptyScreen,
   EmptyState,
   Icon,
   IconButton,
   ListRow,
+  makeStyles,
   SectionHeader,
   SwitchRow,
   Text,
-  makeStyles,
   useTheme,
 } from '@/design';
 import {
@@ -84,7 +85,7 @@ export default function MusicFoldersScreen() {
 
   if (!isLibraryAvailable) {
     return (
-      <EmptyState
+      <EmptyScreen
         icon="folder"
         title="Needs the full app"
         message="Music folders need Isai’s development build; they aren’t available in Expo Go."

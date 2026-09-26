@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { listGenres } from '@/db/repos/browse';
-import { EmptyState, Icon, ListRow, useTheme } from '@/design';
+import { EmptyScreen, Icon, ListRow, useTheme } from '@/design';
 import { formatCount } from '@/lib/format';
 
 import { useBrowse } from '../navigation';
@@ -16,7 +16,7 @@ export function GenresScreen() {
 
   if (genres.data?.length === 0) {
     return (
-      <EmptyState
+      <EmptyScreen
         icon="genre"
         title="No genres"
         message="None of your songs have a genre tag yet."

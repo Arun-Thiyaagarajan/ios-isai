@@ -1,24 +1,22 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, router } from 'expo-router';
 
-import { IconButton } from '@/design';
+import { headerActions } from '@/features/shell/headerActions';
 import { stackScreenOptions } from '@/features/shell/stackOptions';
-
-function SettingsButton() {
-  const router = useRouter();
-  return <IconButton icon="settings" label="Settings" onPress={() => router.push('/settings')} />;
-}
+import { TabStackFrame } from '@/features/shell/TabStackFrame';
 
 export default function HomeStack() {
   return (
-    <Stack screenOptions={stackScreenOptions}>
-      <Stack.Screen
-        name="index"
-        options={{
-          title: 'Isai',
-          headerLargeTitle: true,
-          headerRight: () => <SettingsButton />,
-        }}
-      />
-    </Stack>
+    <TabStackFrame>
+      <Stack screenOptions={stackScreenOptions}>
+        <Stack.Screen
+          name="index"
+          options={{
+            title: 'Isai',
+            headerLargeTitle: true,
+            ...headerActions([{ icon: 'settings', label: 'Settings', onPress: () => router.push('/settings') }]),
+          }}
+        />
+      </Stack>
+    </TabStackFrame>
   );
 }

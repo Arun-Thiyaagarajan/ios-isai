@@ -13,19 +13,46 @@ import {
   SwitchRow,
   Text,
   makeStyles,
+  themes,
   useTheme,
-  type ThemePreference,
 } from '@/design';
 import { scanLibrary } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { useSettings } from '@/features/settings/settingsStore';
+import { ThemePicker } from '@/features/settings/ThemePicker';
 import { formatCount, formatTimeAgo } from '@/lib/format';
 
-const themeOptions: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
+function AppearanceSection() {
+  const styles = useStyles();
+  const chosen = useSettings((s) => s.theme);
+  const matchSystem = useSettings((s) => s.matchSystem);
+  const setSetting = useSettings((s) => s.set);
+  const darkChoice = themes[chosen].scheme === 'dark' ? themes[chosen].label : themes.midnight.label;
+
+  return (
+    <>
+      <ThemePicker
+        selected={chosen}
+        onSelect={(name) => {
+          setSetting('theme', name);
+          // Choosing Pearl explicitly means "always light", so stop following the system.
+          if (name === 'pearl' && matchSystem) {
+            setSetting('matchSystem', false);
+          }
+        }}
+      />
+      <Text variant="footnote" color="secondary" style={styles.note}>
+        {themes[chosen].description}
+      </Text>
+      <SwitchRow
+        title="Match System"
+        subtitle={`Pearl in light mode, ${darkChoice} in dark mode`}
+        value={matchSystem}
+        onValueChange={(value) => setSetting('matchSystem', value)}
+      />
+    </>
+  );
+}
 
 function LibrarySection() {
   const theme = useTheme();
@@ -95,9 +122,6 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const styles = useStyles();
   const router = useRouter();
-  const preference = useSettings((s) => s.themePreference);
-  const oledBlack = useSettings((s) => s.oledBlack);
-  const setSetting = useSettings((s) => s.set);
 
   return (
     <ScrollView
@@ -105,26 +129,8 @@ export default function SettingsScreen() {
       style={{ backgroundColor: theme.colors.bg }}
       contentContainerStyle={styles.bottom}
     >
-      <SectionHeader title="Appearance" />
-      {themeOptions.map((option) => {
-        const selected = preference === option.value;
-        return (
-          <ListRow
-            key={option.value}
-            title={option.label}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selected }}
-            onPress={() => setSetting('themePreference', option.value)}
-            trailing={selected ? <Icon name="check" color={theme.colors.accentText} /> : null}
-          />
-        );
-      })}
-      <SwitchRow
-        title="True Black"
-        subtitle="Pure black background in dark mode, for OLED screens"
-        value={oledBlack}
-        onValueChange={(value) => setSetting('oledBlack', value)}
-      />
+      <SectionHeader title="Theme" />
+      <AppearanceSection />
 
       <SectionHeader title="Library" />
       <LibrarySection />

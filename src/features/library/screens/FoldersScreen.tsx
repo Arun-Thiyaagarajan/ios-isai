@@ -8,6 +8,9 @@ import { listFolderSongs, listSubfolders, type FolderEntry, type TrackItem } fro
 import { Icon, ListRow, useTheme } from '@/design';
 import { formatCount } from '@/lib/format';
 
+import { playSongs } from '@/features/player/playerService';
+import { openSongActions } from '@/features/player/songActions';
+
 import { TrackRow } from '../components/TrackRow';
 import { useBrowse } from '../navigation';
 
@@ -28,6 +31,10 @@ export function FoldersScreen() {
     ],
   });
 
+  const folderSongIds = (contents.data ?? [])
+    .filter((item): item is Extract<Item, { kind: 'song' }> => item.kind === 'song' && item.song.isPlayable)
+    .map((item) => item.song.id);
+
   const title = current ? current.slice(current.lastIndexOf('/') + 1) : 'Folders';
 
   return (
@@ -47,7 +54,15 @@ export function FoldersScreen() {
               trailing={<Icon name="chevronRight" size={theme.sizes.icon.md} color={theme.colors.textTertiary} />}
             />
           ) : (
-            <TrackRow track={item.song} />
+            <TrackRow
+              track={item.song}
+              onPress={
+                item.song.isPlayable
+                  ? () => playSongs(folderSongIds, folderSongIds.indexOf(item.song.id))
+                  : undefined
+              }
+              onMore={() => openSongActions(item.song.id)}
+            />
           )
         }
         contentInsetAdjustmentBehavior="automatic"

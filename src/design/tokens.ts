@@ -7,96 +7,202 @@ import type { TextStyle } from 'react-native';
 // ─── Color ──────────────────────────────────────────────────────────────────
 
 export type ColorPalette = {
-  /** Screen background. */
+  /** Screen background (base level). */
   bg: string;
   /** Slightly raised background (grouped lists, sheets). */
   bgElevated: string;
   /** Tonal surface (cards, filled buttons, Android chrome). */
   surface: string;
-  /** Higher tonal surface (pressed states, selected rows). */
+  /** Higher tonal surface (pressed states, selected rows, floating surfaces). */
   surfaceHigh: string;
+  /** Cards on top of the background. */
+  card: string;
+  /** Bottom navigation background (Android; iOS uses the system glass bar). */
+  navBg: string;
+  /** Now Playing background when no artwork colors are used. */
+  playerBg: string;
   textPrimary: string;
   textSecondary: string;
   /** Non-essential text only (e.g. track numbers); not guaranteed 4.5:1. */
   textTertiary: string;
+  textDisabled: string;
+  icon: string;
+  iconSecondary: string;
   separator: string;
+  border: string;
   /** Brand accent for fills (buttons, progress, selected tab). */
   accent: string;
   /** Accent when used as text on `bg`; tuned to reach 4.5:1. */
   accentText: string;
   /** Text/icons drawn on top of `accent`. */
   onAccent: string;
+  /** Two stops for the rare accent gradient (same color twice in themes without one). */
+  accentGradient: readonly [string, string];
+  progressTrack: string;
+  progressFill: string;
   danger: string;
+  /** Dimming layer behind sheets and dialogs. */
   scrim: string;
   skeleton: string;
   /** Artwork placeholder fill. */
   placeholder: string;
 };
 
-// Warm saffron: the Isai brand hue.
-const saffron = {
-  light: '#E39B2F',
-  lightText: '#9A5800',
-  dark: '#F2B45A',
-  onAccent: '#1C1200',
+/** Palette keys that hold a single color (everything except gradient pairs). */
+export type ColorName = {
+  [K in keyof ColorPalette]: ColorPalette[K] extends string ? K : never;
+}[keyof ColorPalette];
+
+export type ThemeName = 'pureBlack' | 'midnight' | 'aurora' | 'pearl';
+
+export type ThemeDefinition = {
+  name: ThemeName;
+  label: string;
+  description: string;
+  scheme: 'light' | 'dark';
+  colors: ColorPalette;
 };
 
-export const palettes = {
-  light: {
-    bg: '#FFFFFF',
-    bgElevated: '#F5F5F7',
-    surface: '#F0F0F3',
-    surfaceHigh: '#E6E6EB',
-    textPrimary: '#111114',
-    textSecondary: '#5E5E66',
-    textTertiary: '#8A8A93',
-    separator: 'rgba(60, 60, 67, 0.18)',
-    accent: saffron.light,
-    accentText: saffron.lightText,
-    onAccent: saffron.onAccent,
-    danger: '#C62F2B',
-    scrim: 'rgba(0, 0, 0, 0.4)',
-    skeleton: '#ECECF0',
-    placeholder: '#E4E4EA',
+/**
+ * The four Isai themes. Few on purpose: each one is tuned by hand for contrast and surface depth
+ * (the token tests check every text/background pair meets WCAG AA).
+ */
+export const themes: Record<ThemeName, ThemeDefinition> = {
+  pureBlack: {
+    name: 'pureBlack',
+    label: 'Pure Black',
+    description: 'True black for OLED screens, with a warm saffron accent.',
+    scheme: 'dark',
+    colors: {
+      bg: '#000000',
+      bgElevated: '#0A0A0B',
+      surface: '#121214',
+      surfaceHigh: '#1C1C1F',
+      card: '#0E0E10',
+      navBg: '#0A0A0B',
+      playerBg: '#000000',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#A3A3AB',
+      textTertiary: '#6B6B73',
+      textDisabled: '#48484E',
+      icon: '#FFFFFF',
+      iconSecondary: '#A3A3AB',
+      separator: 'rgba(255, 255, 255, 0.09)',
+      border: 'rgba(255, 255, 255, 0.14)',
+      accent: '#F2B45A',
+      accentText: '#F2B45A',
+      onAccent: '#1C1200',
+      accentGradient: ['#F2B45A', '#F2B45A'],
+      progressTrack: 'rgba(255, 255, 255, 0.18)',
+      progressFill: '#FFFFFF',
+      danger: '#FF6B63',
+      scrim: 'rgba(0, 0, 0, 0.6)',
+      skeleton: '#161618',
+      placeholder: '#1A1A1D',
+    },
   },
-  dark: {
-    bg: '#0E0E11',
-    bgElevated: '#17171B',
-    surface: '#1C1C21',
-    surfaceHigh: '#27272D',
-    textPrimary: '#F5F5F7',
-    textSecondary: '#A1A1AA',
-    textTertiary: '#6E6E77',
-    separator: 'rgba(255, 255, 255, 0.12)',
-    accent: saffron.dark,
-    accentText: saffron.dark,
-    onAccent: saffron.onAccent,
-    danger: '#FF6B63',
-    scrim: 'rgba(0, 0, 0, 0.55)',
-    skeleton: '#1F1F24',
-    placeholder: '#232329',
+  midnight: {
+    name: 'midnight',
+    label: 'Midnight',
+    description: 'Deep navy surfaces and a soft periwinkle accent for late nights.',
+    scheme: 'dark',
+    colors: {
+      bg: '#0B1020',
+      bgElevated: '#10172B',
+      surface: '#161E35',
+      surfaceHigh: '#1F2843',
+      card: '#121A2F',
+      navBg: '#0E1426',
+      playerBg: '#0B1020',
+      textPrimary: '#EEF1F8',
+      textSecondary: '#A0AAC2',
+      textTertiary: '#687290',
+      textDisabled: '#465070',
+      icon: '#EEF1F8',
+      iconSecondary: '#A0AAC2',
+      separator: 'rgba(160, 180, 255, 0.10)',
+      border: 'rgba(160, 180, 255, 0.18)',
+      accent: '#8AB0FF',
+      accentText: '#8AB0FF',
+      onAccent: '#0B1020',
+      accentGradient: ['#8AB0FF', '#8AB0FF'],
+      progressTrack: 'rgba(160, 180, 255, 0.20)',
+      progressFill: '#8AB0FF',
+      danger: '#FF7A80',
+      scrim: 'rgba(3, 6, 15, 0.6)',
+      skeleton: '#18203A',
+      placeholder: '#1A2340',
+    },
   },
-  // True black for OLED screens; surfaces stay slightly lifted so structure is still visible.
-  oled: {
-    bg: '#000000',
-    bgElevated: '#0B0B0C',
-    surface: '#121214',
-    surfaceHigh: '#1C1C1F',
-    textPrimary: '#F5F5F7',
-    textSecondary: '#A1A1AA',
-    textTertiary: '#6E6E77',
-    separator: 'rgba(255, 255, 255, 0.10)',
-    accent: saffron.dark,
-    accentText: saffron.dark,
-    onAccent: saffron.onAccent,
-    danger: '#FF6B63',
-    scrim: 'rgba(0, 0, 0, 0.6)',
-    skeleton: '#161618',
-    placeholder: '#1A1A1D',
+  aurora: {
+    name: 'aurora',
+    label: 'Aurora',
+    description: 'A dark base with violet-to-teal highlights that flatter artwork.',
+    scheme: 'dark',
+    colors: {
+      bg: '#0F0E14',
+      bgElevated: '#16141D',
+      surface: '#1D1A26',
+      surfaceHigh: '#282435',
+      card: '#18161F',
+      navBg: '#141219',
+      playerBg: '#0F0E14',
+      textPrimary: '#F4F2FA',
+      textSecondary: '#AAA4BC',
+      textTertiary: '#716B84',
+      textDisabled: '#4B4659',
+      icon: '#F4F2FA',
+      iconSecondary: '#AAA4BC',
+      separator: 'rgba(200, 180, 255, 0.10)',
+      border: 'rgba(200, 180, 255, 0.18)',
+      accent: '#B794FF',
+      accentText: '#C3A6FF',
+      onAccent: '#170F2B',
+      accentGradient: ['#B794FF', '#4FD1C5'],
+      progressTrack: 'rgba(200, 180, 255, 0.20)',
+      progressFill: '#B794FF',
+      danger: '#FF7A8A',
+      scrim: 'rgba(6, 4, 12, 0.6)',
+      skeleton: '#1E1B28',
+      placeholder: '#221F2D',
+    },
   },
-} satisfies Record<string, ColorPalette>;
+  pearl: {
+    name: 'pearl',
+    label: 'Pearl',
+    description: 'Warm, soft light surfaces with deep amber details.',
+    scheme: 'light',
+    colors: {
+      bg: '#F7F5F2',
+      bgElevated: '#FFFFFF',
+      surface: '#EEEAE4',
+      surfaceHigh: '#E4DFD7',
+      card: '#FFFFFF',
+      navBg: '#FBFAF8',
+      playerBg: '#F7F5F2',
+      textPrimary: '#1C1A17',
+      textSecondary: '#5C5750',
+      textTertiary: '#8E887F',
+      textDisabled: '#B9B3AA',
+      icon: '#1C1A17',
+      iconSecondary: '#5C5750',
+      separator: 'rgba(60, 45, 30, 0.12)',
+      border: 'rgba(60, 45, 30, 0.18)',
+      accent: '#A15A12',
+      accentText: '#A15A12',
+      onAccent: '#FFFFFF',
+      accentGradient: ['#A15A12', '#A15A12'],
+      progressTrack: 'rgba(60, 45, 30, 0.16)',
+      progressFill: '#1C1A17',
+      danger: '#B3261E',
+      scrim: 'rgba(28, 20, 10, 0.35)',
+      skeleton: '#EAE6E0',
+      placeholder: '#E6E1DA',
+    },
+  },
+};
 
-export type PaletteName = keyof typeof palettes;
+export const themeOrder: ThemeName[] = ['pureBlack', 'midnight', 'aurora', 'pearl'];
 
 // ─── Spacing (4-pt grid) ────────────────────────────────────────────────────
 

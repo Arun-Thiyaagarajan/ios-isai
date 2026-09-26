@@ -6,7 +6,10 @@ import { View } from 'react-native';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { listSongs } from '@/db/repos/browse';
-import { Text, makeStyles, useTheme } from '@/design';
+import { listSongIds } from '@/db/repos/player';
+import { Button, Text, makeStyles, useTheme } from '@/design';
+import { playSongs } from '@/features/player/playerService';
+import { openSongActions } from '@/features/player/songActions';
 import { formatCount } from '@/lib/format';
 
 import { TrackRow } from './components/TrackRow';
@@ -42,9 +45,21 @@ export function SongList({ total }: { total: number }) {
     <FlashList
       data={data}
       keyExtractor={(song) => String(song.id)}
-      renderItem={({ item }) => <TrackRow track={item} />}
+      renderItem={({ item, index }) => (
+        <TrackRow
+          track={item}
+          onPress={item.isPlayable ? () => playSongs(listSongIds(db), index) : undefined}
+          onMore={() => openSongActions(item.id)}
+        />
+      )}
       ListHeaderComponent={
         <View style={styles.header}>
+          <Button
+            label="Shuffle All"
+            icon="shuffle"
+            variant="secondary"
+            onPress={() => playSongs(listSongIds(db), 0, { shuffle: true })}
+          />
           <Text variant="footnote" color="secondary">
             {formatCount(total, 'song')}
             {scanning ? ' · Updating…' : ''}
@@ -69,5 +84,6 @@ const useStyles = makeStyles((t) => ({
   header: {
     paddingHorizontal: t.gutter,
     paddingVertical: t.spacing.sm,
+    gap: t.spacing.md,
   },
 }));

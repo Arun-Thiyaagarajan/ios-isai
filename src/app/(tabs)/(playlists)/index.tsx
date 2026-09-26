@@ -1,14 +1,3 @@
-import { EmptyState } from '@/design';
-import { TabScreen } from '@/features/shell/TabScreen';
+import { PlaylistsScreen } from '@/features/playlists/PlaylistsScreen';
 
-export default function PlaylistsScreen() {
-  return (
-    <TabScreen>
-      <EmptyState
-        icon="playlists"
-        title="No playlists yet"
-        message="Create playlists and keep your favorites here."
-      />
-    </TabScreen>
-  );
-}
+export default PlaylistsScreen;

@@ -19,6 +19,8 @@ const config: ExpoConfig = {
       // Show Isai's Documents folder in the Files app ("On My iPhone › Isai") so users can add music.
       UIFileSharingEnabled: true,
       LSSupportsOpeningDocumentsInPlace: true,
+      // Keep playing music with the screen locked or another app open.
+      UIBackgroundModes: ['audio'],
     },
   },
   android: {
