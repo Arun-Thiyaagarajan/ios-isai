@@ -98,6 +98,14 @@ export function folderFileToTrack(
     copyright: tags?.copyright ?? null,
     bpm: tags?.bpm ?? null,
     lyrics: tags?.lyrics ?? null,
+    replayGain: tags
+      ? {
+          trackGain: tags.rgTrackGain ?? null,
+          trackPeak: tags.rgTrackPeak ?? null,
+          albumGain: tags.rgAlbumGain ?? null,
+          albumPeak: tags.rgAlbumPeak ?? null,
+        }
+      : undefined,
     ...playability('ios', fileName, null),
   };
 }

@@ -13,6 +13,7 @@ import {
   type PlaylistViewOptions,
   type SongViewOptions,
 } from '@/features/library/viewOptions';
+import { DEFAULT_EQUALIZER, isReplayGainMode, type EqualizerSettings, type ReplayGainMode } from '@/features/audio/equalizer';
 import {
   DEFAULT_PLAYER_OPTIONS,
   DEFAULT_PLAYER_THEME,
@@ -63,6 +64,10 @@ export type Settings = {
   haptics: boolean;
   /** Lock screen and notification player (controls, artwork, seek bar). Playback is unaffected. */
   lockScreenPlayer: boolean;
+  /** 10-band equalizer, bass boost and overall gain. */
+  equalizer: EqualizerSettings;
+  /** Volume levelling from ReplayGain tags. */
+  replayGain: ReplayGainMode;
   /** Now Playing background style (separate from the app theme). */
   playerTheme: PlayerThemeId;
   /** Blur, darkness, gradient style and accent source for the player theme. */
@@ -89,6 +94,8 @@ export const settingsDefaults: Settings = {
   showLyricsButton: true,
   haptics: true,
   lockScreenPlayer: true,
+  equalizer: DEFAULT_EQUALIZER,
+  replayGain: 'off',
   playerTheme: DEFAULT_PLAYER_THEME,
   playerThemeOptions: DEFAULT_PLAYER_OPTIONS,
   showGreeting: true,
@@ -121,6 +128,9 @@ const validators: { [K in keyof Settings]: (value: unknown) => value is Settings
   showLyricsButton: isBoolean,
   haptics: isBoolean,
   lockScreenPlayer: isBoolean,
+  // Fields are checked (and defaulted) by sanitizeEqualizer where they're used.
+  equalizer: (v): v is EqualizerSettings => isObject(v),
+  replayGain: isReplayGainMode,
   playerTheme: isPlayerThemeId,
   playerThemeOptions: (v): v is PlayerThemeOptions => isObject(v),
   showGreeting: isBoolean,

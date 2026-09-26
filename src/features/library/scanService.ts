@@ -24,6 +24,7 @@ import {
   upsertTracks,
   type ScanScope,
 } from '@/db/repos/library';
+import { saveReplayGain, songsNeedingReplayGain } from '@/db/repos/player';
 import { useSettings } from '@/features/settings/settingsStore';
 
 import { folderFileToTrack, iosFolderPath, mediaStoreRowToTrack, type IosRoot } from './mapTracks';
@@ -80,6 +81,8 @@ export function scanLibrary(): Promise<void> {
       });
     } finally {
       running = null;
+      // Android's media database has no ReplayGain tags; read them in the background when needed.
+      readLevellingTags();
       if (changed) {
         queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
       } else {
@@ -89,6 +92,42 @@ export function scanLibrary(): Promise<void> {
     }
   })();
   return running;
+}
+
+let levelling: Promise<void> | null = null;
+const LEVELLING_BATCH = 40;
+
+/**
+ * Android: reads ReplayGain tags for songs that don't have them yet, a batch at a time, while
+ * volume levelling is on. (iOS reads them during the scan.) One pass at a time; safe to call often.
+ */
+export function readLevellingTags(): Promise<void> {
+  if (Platform.OS !== 'android' || !isLibraryAvailable || useSettings.getState().replayGain === 'off') {
+    return Promise.resolve();
+  }
+  const lib = androidLibrary();
+  if (typeof lib.readReplayGain !== 'function') {
+    return Promise.resolve(); // built before levelling existed
+  }
+  levelling ??= (async () => {
+    try {
+      for (;;) {
+        const batch = songsNeedingReplayGain(db, LEVELLING_BATCH);
+        if (batch.length === 0) break;
+        const tags = await lib.readReplayGain!(batch.map((song) => song.uri));
+        const byUri = new Map(tags.map((t) => [t.uri, t]));
+        for (const song of batch) {
+          saveReplayGain(db, song.id, byUri.get(song.uri) ?? {});
+        }
+        await yieldToUi();
+      }
+    } catch {
+      // Try again after the next scan.
+    } finally {
+      levelling = null;
+    }
+  })();
+  return levelling;
 }
 
 let watching = false;

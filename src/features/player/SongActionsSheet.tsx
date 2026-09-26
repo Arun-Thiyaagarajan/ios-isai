@@ -47,6 +47,11 @@ export function SongActionsSheet() {
       onPress: () => router.replace('/player-theme'),
     });
     actions.push({
+      icon: 'equalizer',
+      title: 'Equalizer',
+      onPress: () => router.replace('/equalizer'),
+    });
+    actions.push({
       icon: 'sleepTimer',
       title: 'Sleep Timer',
       subtitle: sleep ?? undefined,

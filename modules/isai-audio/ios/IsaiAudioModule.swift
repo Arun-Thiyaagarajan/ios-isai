@@ -40,6 +40,11 @@ public class IsaiAudioModule: Module {
     AsyncFunction("skipToNext") { self.engine.skipToNext() }.runOnQueue(.main)
     AsyncFunction("skipToPrevious") { self.engine.skipToPrevious() }.runOnQueue(.main)
     AsyncFunction("skipTo") { (index: Int) in self.engine.skip(to: index) }.runOnQueue(.main)
+    /// Equalizer, bass boost, overall gain and levelling mode; applies to the playing song at once.
+    AsyncFunction("setAudioEffects") { (settings: [String: Any]) in
+      AudioEffects.shared.update(EffectsSettings(settings))
+    }
+
     AsyncFunction("setLockScreenControls") { (enabled: Bool) in
       self.engine.setLockScreenControls(enabled)
     }.runOnQueue(.main)

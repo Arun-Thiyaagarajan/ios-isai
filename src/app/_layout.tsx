@@ -43,6 +43,16 @@ function RootStack() {
           }}
         />
         <Stack.Screen
+          name="equalizer"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.92],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 24,
+          }}
+        />
+        <Stack.Screen
           name="sleep-timer"
           options={{
             presentation: 'formSheet',

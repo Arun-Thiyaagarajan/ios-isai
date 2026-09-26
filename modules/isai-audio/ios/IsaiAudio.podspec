@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
-  s.frameworks = 'AVFoundation', 'AVKit', 'MediaPlayer'
+  s.frameworks = 'AVFoundation', 'AVKit', 'MediaPlayer', 'MediaToolbox'
 
   # Swift 5 language mode: strict Swift 6 concurrency checks are warnings, not errors.
   s.swift_version = '5.9'

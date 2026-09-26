@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState, makeStyles, useTheme } from '@/design';
 import { PlayerBackground } from '@/theme/player/PlayerBackground';
-import { PlayerThemeProvider, usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
+import { PlayerStatusBar, PlayerThemeProvider, usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
 
 import { PlayerArtwork } from './nowPlaying/PlayerArtwork';
 import { PlayerBottomBar } from './nowPlaying/PlayerBottomBar';
@@ -26,6 +26,7 @@ export function NowPlayingScreen() {
     // The player is a native modal (its own view hierarchy), so gestures need their own root.
     <GestureHandlerRootView style={styles.root}>
       <PlayerThemeProvider item={item}>
+        <PlayerStatusBar />
         <NowPlaying />
       </PlayerThemeProvider>
     </GestureHandlerRootView>

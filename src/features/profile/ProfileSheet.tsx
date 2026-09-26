@@ -25,6 +25,7 @@ import {
   useTheme,
   type IconName,
 } from '@/design';
+import { EQ_PRESETS, sanitizeEqualizer } from '@/features/audio/equalizer';
 import { scanLibrary } from '@/features/library/scanService';
 import { useScanStore } from '@/features/library/scanStore';
 import { useSettings, type Settings } from '@/features/settings/settingsStore';
@@ -280,6 +281,14 @@ export function ProfileSheet() {
   const lightTheme = useSettings((s) => s.lightTheme);
   const darkTheme = useSettings((s) => s.darkTheme);
   const version = Constants.expoConfig?.version ?? '';
+  const equalizer = sanitizeEqualizer(useSettings((s) => s.equalizer));
+  const replayGain = useSettings((s) => s.replayGain);
+  const eqSummary = [
+    equalizer.enabled ? (EQ_PRESETS.find((p) => p.id === equalizer.preset)?.name ?? 'Custom') : 'Off',
+    replayGain !== 'off' ? 'Levelling on' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const appearance =
     mode === 'system'
@@ -322,6 +331,13 @@ export function ProfileSheet() {
           icon="queue"
           title="Remember Queue"
           subtitle="Pick up where you left off when Isai opens"
+        />
+        <ListRow
+          title="Equalizer"
+          subtitle={eqSummary}
+          onPress={() => router.push('/equalizer')}
+          leading={<RowIcon name="equalizer" />}
+          trailing={<Chevron />}
         />
         <SettingSwitch setting="showLyricsButton" icon="lyrics" title="Lyrics" subtitle="Show the lyrics button on Now Playing" />
         <SettingSwitch setting="showVolumeSlider" icon="volumeHigh" title="Volume Slider" subtitle="Show a volume control on Now Playing" />

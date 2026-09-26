@@ -16,7 +16,7 @@ import { ProgressBar } from '@/features/player/ProgressBar';
 import { useProgress } from '@/features/player/useProgress';
 import { tapHaptic } from '@/lib/haptics';
 import { PlayerBackground } from '@/theme/player/PlayerBackground';
-import { PlayerThemeProvider, usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
+import { PlayerStatusBar, PlayerThemeProvider, usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
 
 import { activeLineIndex, parseLyrics, type SyncedLine } from './lrc';
 
@@ -37,6 +37,7 @@ export function LyricsScreen() {
     <GestureHandlerRootView style={styles.root}>
       {/* Aurora: blurred, darkened artwork colors that drift while the music plays. */}
       <PlayerThemeProvider item={item} themeId="aurora">
+        <PlayerStatusBar />
         <Lyrics />
       </PlayerThemeProvider>
     </GestureHandlerRootView>

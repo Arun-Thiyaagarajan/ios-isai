@@ -157,6 +157,8 @@ export const songs = sqliteTable(
     rgTrackPeak: real('rg_track_peak'),
     rgAlbumGain: real('rg_album_gain'),
     rgAlbumPeak: real('rg_album_peak'),
+    /** When the ReplayGain tags above were read (null: not yet, e.g. Android before the levelling pass). */
+    replayGainReadAt: integer('replay_gain_read_at'),
 
     // State
     isPlayable: integer('is_playable', { mode: 'boolean' }).notNull().default(true),

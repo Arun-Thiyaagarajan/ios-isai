@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Animated, StyleSheet, View, useColorScheme, useWindowDimensions, type ColorSchemeName } from 'react-native';
+import { Animated, Appearance, StyleSheet, View, useColorScheme, useWindowDimensions, type ColorSchemeName } from 'react-native';
 
 import { useReducedMotion } from './a11y';
 
@@ -133,6 +133,14 @@ export function ThemeProvider({ children, mode = 'system', lightTheme = 'isaiLig
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(theme.colors.bg);
   }, [theme.colors.bg]);
+
+  // Native chrome (Liquid Glass tab bar, search button, mini player accessory, header buttons,
+  // sheets) follows the window's light/dark style, not our colors. Pin it to the chosen theme, or
+  // a light theme on a dark-mode phone gets dark glass under our dark text.
+  const forcedScheme = mode === 'system' ? 'unspecified' : scheme;
+  useEffect(() => {
+    Appearance.setColorScheme(forcedScheme);
+  }, [forcedScheme]);
 
   const navigationTheme = useMemo(() => {
     const base = scheme === 'dark' ? DarkTheme : DefaultTheme;

@@ -19,6 +19,7 @@ import {
   type PlayableSong,
 } from '@/db/repos/player';
 
+import { effectsForNative, isReplayGainMode, replayGainForItem, sanitizeEqualizer } from '@/features/audio/equalizer';
 import { useSettings } from '@/features/settings/settingsStore';
 import { showToast } from '@/features/shell/toast';
 
@@ -44,6 +45,16 @@ const SAVE_DELAY_MS = 1000;
 
 // ─── Building queue items ───────────────────────────────────────────────────
 
+/** Levelling gains from the song's ReplayGain tags (the engine picks track or album by mode). */
+function gainsFor(song: PlayableSong) {
+  return replayGainForItem({
+    trackGain: song.rgTrackGain,
+    trackPeak: song.rgTrackPeak,
+    albumGain: song.rgAlbumGain,
+    albumPeak: song.rgAlbumPeak,
+  });
+}
+
 function toQueueItem(song: PlayableSong): QueueItem {
   const base = {
     key: newKey(),
@@ -54,6 +65,7 @@ function toQueueItem(song: PlayableSong): QueueItem {
     albumId: song.albumId,
     artworkUri: song.artworkKey || null,
     durationMs: song.durationMs,
+    ...gainsFor(song),
   };
   if (Platform.OS === 'android' || song.source === 'mediastore') {
     return { ...base, uri: song.uri };
@@ -74,6 +86,8 @@ function toNative(item: QueueItem): NativeQueueItem {
     album: item.album,
     artworkUri: item.artworkUri,
     durationMs: item.durationMs,
+    trackGainDb: item.trackGainDb ?? 0,
+    albumGainDb: item.albumGainDb ?? 0,
   };
 }
 
@@ -408,6 +422,18 @@ function restore() {
 
 let started = false;
 
+/** Equalizer, bass boost and levelling mode, from settings to the engine. */
+function applyAudioEffects() {
+  const { equalizer, replayGain } = useSettings.getState();
+  const effects = effectsForNative(sanitizeEqualizer(equalizer), isReplayGainMode(replayGain) ? replayGain : 'off');
+  native(async () => {
+    const engine = audio();
+    if (typeof engine.setAudioEffects === 'function') {
+      await engine.setAudioEffects(effects);
+    }
+  });
+}
+
 /** Lock screen / notification player: on only when the build allows it and the setting is on. */
 function applyLockScreenSetting() {
   const enabled = config.lockScreenPlayer && useSettings.getState().lockScreenPlayer;
@@ -432,9 +458,13 @@ export function startPlayer() {
     showToast(item ? `Couldn’t play “${item.title}”. Skipped.` : 'A song couldn’t be played.');
   });
   applyLockScreenSetting();
+  applyAudioEffects();
   useSettings.subscribe((state, previous) => {
     if (state.lockScreenPlayer !== previous.lockScreenPlayer) {
       applyLockScreenSetting();
+    }
+    if (state.equalizer !== previous.equalizer || state.replayGain !== previous.replayGain) {
+      applyAudioEffects();
     }
   });
   if (useSettings.getState().restoreQueue) {

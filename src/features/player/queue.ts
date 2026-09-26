@@ -21,6 +21,9 @@ export type QueueItem = {
   /** iOS: "documents" or a folder bookmark, plus the path inside it. */
   root?: string;
   path?: string;
+  /** Volume levelling gains (dB) for track and album mode; 0 without ReplayGain tags. */
+  trackGainDb?: number;
+  albumGainDb?: number;
 };
 
 export type RepeatMode = 'off' | 'all' | 'one';

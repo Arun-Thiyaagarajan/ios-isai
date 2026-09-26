@@ -17,6 +17,11 @@ export type PlayableSong = {
   uri: string;
   bookmark: string | null;
   artworkKey: string | null;
+  /** ReplayGain tags (null when the file has none, or they weren't read yet). */
+  rgTrackGain: number | null;
+  rgTrackPeak: number | null;
+  rgAlbumGain: number | null;
+  rgAlbumPeak: number | null;
 };
 
 /** Looks up songs for the queue, returned in the order of `ids` (duplicates kept, missing ones dropped). */
@@ -33,7 +38,9 @@ export function getPlayableSongs(db: AppDatabase, ids: number[]): PlayableSong[]
       SELECT s.id AS id, s.title AS title, s.artist_display AS artist, a.title AS album, s.album_id AS albumId,
              s.duration_ms AS durationMs, s.is_playable AS isPlayable, s.source AS source, s.source_id AS sourceId,
              s.uri AS uri, r.bookmark AS bookmark,
-             coalesce(s.artwork_override, a.artwork_key) AS artworkKey
+             coalesce(s.artwork_override, a.artwork_key) AS artworkKey,
+             s.rg_track_gain AS rgTrackGain, s.rg_track_peak AS rgTrackPeak,
+             s.rg_album_gain AS rgAlbumGain, s.rg_album_peak AS rgAlbumPeak
       FROM songs s
       LEFT JOIN albums a ON a.id = s.album_id
       LEFT JOIN library_roots r ON r.id = s.root_id
@@ -90,4 +97,30 @@ export function saveQueue(db: AppDatabase, queue: SavedQueue): void {
     .values({ key: QUEUE_KEY, valueJson })
     .onConflictDoUpdate({ target: settings.key, set: { valueJson } })
     .run();
+}
+
+// ─── Volume levelling (ReplayGain) ──────────────────────────────────────────
+
+/** Android songs whose ReplayGain tags haven't been read yet (the media database lacks them). */
+export function songsNeedingReplayGain(db: AppDatabase, limit: number): { id: number; uri: string }[] {
+  return db.all<{ id: number; uri: string }>(sql`
+    SELECT id, uri FROM songs
+    WHERE source = 'mediastore' AND is_available = 1 AND replay_gain_read_at IS NULL
+    LIMIT ${limit}
+  `);
+}
+
+export function saveReplayGain(
+  db: AppDatabase,
+  songId: number,
+  tags: { trackGain?: number | null; trackPeak?: number | null; albumGain?: number | null; albumPeak?: number | null },
+  now = Date.now(),
+): void {
+  db.run(sql`
+    UPDATE songs SET
+      rg_track_gain = ${tags.trackGain ?? null}, rg_track_peak = ${tags.trackPeak ?? null},
+      rg_album_gain = ${tags.albumGain ?? null}, rg_album_peak = ${tags.albumPeak ?? null},
+      replay_gain_read_at = ${now}
+    WHERE id = ${songId}
+  `);
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `songs` ADD `replay_gain_read_at` integer;

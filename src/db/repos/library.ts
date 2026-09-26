@@ -54,8 +54,20 @@ export type ScannedTrack = {
   bpm: number | null;
   /** Unsynchronized lyrics embedded in the file, if any. */
   lyrics: string | null;
+  /**
+   * ReplayGain tags. Undefined when this scanner can't read them (Android's media database);
+   * a separate levelling pass fills them in later.
+   */
+  replayGain?: ReplayGainValues;
   isPlayable: boolean;
   unplayableReason: string | null;
+};
+
+export type ReplayGainValues = {
+  trackGain: number | null;
+  trackPeak: number | null;
+  albumGain: number | null;
+  albumPeak: number | null;
 };
 
 export const UNKNOWN_ARTIST = 'Unknown Artist';
@@ -277,6 +289,12 @@ export function upsertTracks(db: AppDatabase, ctx: ScanContext, tracks: ScannedT
         missingSince: null,
         tagsScannedAt: Date.now(),
         scanGeneration: ctx.generation,
+        // Tags read now, or cleared so the levelling pass reads the changed file again.
+        rgTrackGain: track.replayGain?.trackGain ?? null,
+        rgTrackPeak: track.replayGain?.trackPeak ?? null,
+        rgAlbumGain: track.replayGain?.albumGain ?? null,
+        rgAlbumPeak: track.replayGain?.albumPeak ?? null,
+        replayGainReadAt: track.replayGain ? Date.now() : null,
       };
 
       const { id: songId } = tx

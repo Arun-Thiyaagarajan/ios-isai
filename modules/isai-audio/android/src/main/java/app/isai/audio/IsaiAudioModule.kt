@@ -36,6 +36,17 @@ class QueueItemRecord : Record {
   @Field val album: String? = null
   @Field val artworkUri: String? = null
   @Field val durationMs: Double = 0.0
+  @Field val trackGainDb: Double = 0.0
+  @Field val albumGainDb: Double = 0.0
+}
+
+/** Equalizer settings sent from JS. */
+class AudioEffectsRecord : Record {
+  @Field val enabled: Boolean = false
+  @Field val bandsDb: List<Double> = emptyList()
+  @Field val bassDb: Double = 0.0
+  @Field val preampDb: Double = 0.0
+  @Field val replayGain: String = "off"
 }
 
 /**
@@ -196,6 +207,19 @@ class IsaiAudioModule : Module() {
       val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       runCatching { context.startActivity(intent) }.isSuccess
     }.runOnQueue(Queues.MAIN)
+
+    /** Equalizer, bass boost, overall gain and levelling mode; applies to the playing song at once. */
+    AsyncFunction("setAudioEffects") { effects: AudioEffectsRecord ->
+      AudioEffects.update(
+        EffectsSettings(
+          enabled = effects.enabled,
+          bandsDb = effects.bandsDb.toDoubleArray(),
+          bassDb = effects.bassDb,
+          preampDb = effects.preampDb,
+          replayGain = effects.replayGain,
+        ),
+      )
+    }
 
     /** Shows or hides the lock screen / notification player. Playback itself is unaffected. */
     AsyncFunction("setLockScreenControls") { enabled: Boolean ->
@@ -369,6 +393,12 @@ class IsaiAudioModule : Module() {
           .setDurationMs(item.durationMs.toLong())
           .setIsPlayable(true)
           .setIsBrowsable(false)
+          .setExtras(
+            android.os.Bundle().apply {
+              putDouble(PlaybackService.EXTRA_TRACK_GAIN, item.trackGainDb)
+              putDouble(PlaybackService.EXTRA_ALBUM_GAIN, item.albumGainDb)
+            },
+          )
           .build(),
       )
       .build()

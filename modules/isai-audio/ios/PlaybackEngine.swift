@@ -14,6 +14,9 @@ struct QueueEntry {
   let album: String?
   let artworkUri: String?
   let durationMs: Double
+  /// Volume levelling (ReplayGain) for this song, dB; 0 when the file has no tags.
+  let trackGainDb: Double
+  let albumGainDb: Double
 
   init(_ dict: [String: Any]) {
     key = dict["key"] as? String ?? UUID().uuidString
@@ -25,6 +28,8 @@ struct QueueEntry {
     album = dict["album"] as? String
     artworkUri = dict["artworkUri"] as? String
     durationMs = (dict["durationMs"] as? NSNumber)?.doubleValue ?? 0
+    trackGainDb = (dict["trackGainDb"] as? NSNumber)?.doubleValue ?? 0
+    albumGainDb = (dict["albumGainDb"] as? NSNumber)?.doubleValue ?? 0
   }
 }
 
@@ -258,7 +263,10 @@ final class PlaybackEngine: NSObject {
       return
     }
 
-    let item = AVPlayerItem(url: url)
+    let asset = AVURLAsset(url: url)
+    let item = AVPlayerItem(asset: asset)
+    // Equalizer, bass boost and volume levelling run on the decoded audio of every song.
+    item.audioMix = AudioEffects.shared.audioMix(for: asset, trackGainDb: entry.trackGainDb, albumGainDb: entry.albumGainDb)
     itemStatusObservation = item.observe(\.status) { [weak self] item, _ in
       DispatchQueue.main.async { self?.itemStatusChanged(item) }
     }

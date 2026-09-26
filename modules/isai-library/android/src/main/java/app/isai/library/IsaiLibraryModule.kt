@@ -60,6 +60,11 @@ class IsaiLibraryModule : Module() {
     AsyncFunction("getImageColors") { uri: String ->
       ArtworkExtractor.imageColors(context, android.net.Uri.parse(uri))
     }
+
+    /** ReplayGain tags of these files (for volume levelling); runs off the main thread. */
+    AsyncFunction("readReplayGain") { uris: List<String> ->
+      uris.map { ReplayGainReader.read(context, it) }
+    }
   }
 
   private fun projection(): Array<String> {

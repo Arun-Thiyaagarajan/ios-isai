@@ -19,6 +19,10 @@ struct TrackTags: Sendable {
   var copyright: String?
   var bpm: Int?
   var lyrics: String?
+  var rgTrackGain: Double?
+  var rgTrackPeak: Double?
+  var rgAlbumGain: Double?
+  var rgAlbumPeak: Double?
 
   var dictionary: [String: Any] {
     var d: [String: Any] = ["path": path, "readable": readable, "durationMs": durationMs, "hasArt": hasArt]
@@ -35,6 +39,10 @@ struct TrackTags: Sendable {
     d["copyright"] = copyright
     d["bpm"] = bpm
     d["lyrics"] = lyrics
+    d["rgTrackGain"] = rgTrackGain
+    d["rgTrackPeak"] = rgTrackPeak
+    d["rgAlbumGain"] = rgAlbumGain
+    d["rgAlbumPeak"] = rgAlbumPeak
     return d
   }
 }
@@ -120,7 +128,16 @@ enum TagReader {
       case .commonIdentifierArtwork, .id3MetadataAttachedPicture, .iTunesMetadataCoverArt:
         tags.hasArt = true
       default:
-        break
+        // ReplayGain lives in "user" fields: ID3 TXXX frames and MP4 freeform (----) atoms.
+        if let name = await replayGainName(item), let value = await text(item).flatMap(parseReplayGain) {
+          switch name {
+          case "replaygain_track_gain": if tags.rgTrackGain == nil { tags.rgTrackGain = value }
+          case "replaygain_track_peak": if tags.rgTrackPeak == nil { tags.rgTrackPeak = value }
+          case "replaygain_album_gain": if tags.rgAlbumGain == nil { tags.rgAlbumGain = value }
+          case "replaygain_album_peak": if tags.rgAlbumPeak == nil { tags.rgAlbumPeak = value }
+          default: break
+          }
+        }
       }
     }
     // A .lrc file next to the song ("Song.lrc" for "Song.mp3") wins: it's usually time-synced.
@@ -128,6 +145,29 @@ enum TagReader {
       tags.lyrics = sidecar
     }
     return tags
+  }
+
+  /// "replaygain_track_gain" etc. when this item is a ReplayGain field, otherwise nil.
+  private static func replayGainName(_ item: AVMetadataItem) async -> String? {
+    let raw = (item.identifier?.rawValue ?? "").lowercased()
+    if let range = raw.range(of: "replaygain_") {
+      return String(raw[range.lowerBound...])
+    }
+    // ID3 TXXX: the field name is the frame's description, stored as its "info" attribute.
+    if raw == "id3/txxx",
+       let attributes = try? await item.load(.extraAttributes),
+       let info = (attributes[.info] as? String)?.lowercased(),
+       info.hasPrefix("replaygain_") {
+      return info
+    }
+    return nil
+  }
+
+  /// "-6.54 dB" → -6.54, "0.988547" → 0.988547.
+  private static func parseReplayGain(_ text: String) -> Double? {
+    let number = text.trimmingCharacters(in: .whitespaces).split(separator: " ").first.map(String.init) ?? ""
+    guard let value = Double(number), value.isFinite, abs(value) < 60 else { return nil }
+    return value
   }
 
   private static func sidecarLyrics(for url: URL) -> String? {

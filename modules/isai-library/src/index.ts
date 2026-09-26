@@ -57,6 +57,8 @@ type AndroidLibraryModule = {
   getArtwork(uri: string, key: string, size: number): Promise<ArtworkResult | null>;
   /** Named colors of a local image; missing in builds from before the player themes. */
   getImageColors?(uri: string): Promise<RawPalette | null>;
+  /** ReplayGain tags of these files (ID3v2 TXXX and FLAC/Vorbis comments); missing in older builds. */
+  readReplayGain?(uris: string[]): Promise<ReplayGainTags[]>;
   getPermissionsAsync(): Promise<PermissionResponse>;
   requestPermissionsAsync(): Promise<PermissionResponse>;
   getMediaStoreVersion(): string;
@@ -104,6 +106,20 @@ export type FileTags = {
   bpm?: number;
   /** Unsynchronized lyrics (ID3 USLT / MP4 ©lyr). */
   lyrics?: string;
+  /** ReplayGain tags (dB, and peak as a 0…1 amplitude). */
+  rgTrackGain?: number;
+  rgTrackPeak?: number;
+  rgAlbumGain?: number;
+  rgAlbumPeak?: number;
+};
+
+/** ReplayGain tags read from one file (Android levelling pass). */
+export type ReplayGainTags = {
+  uri: string;
+  trackGain?: number;
+  trackPeak?: number;
+  albumGain?: number;
+  albumPeak?: number;
 };
 
 type IosLibraryModule = {

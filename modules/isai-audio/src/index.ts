@@ -17,6 +17,18 @@ export type NativeQueueItem = {
   album: string | null;
   artworkUri: string | null;
   durationMs: number;
+  /** Volume levelling (ReplayGain) for this song, dB; the engine picks one by mode. */
+  trackGainDb?: number;
+  albumGainDb?: number;
+};
+
+/** Equalizer settings for the engines (see effectsForNative in src/features/audio/equalizer.ts). */
+export type NativeAudioEffects = {
+  enabled: boolean;
+  bandsDb: number[];
+  bassDb: number;
+  preampDb: number;
+  replayGain: 'off' | 'track' | 'album';
 };
 
 export type NativeRepeatMode = 'off' | 'all' | 'one';
@@ -67,6 +79,8 @@ type IsaiAudioModule = {
   skipToPrevious(): Promise<void>;
   skipTo(index: number): Promise<void>;
   setRepeatMode(mode: NativeRepeatMode): Promise<void>;
+  /** Equalizer, bass boost, overall gain and levelling mode; missing in older builds. */
+  setAudioEffects?(effects: NativeAudioEffects): Promise<void>;
   /** Show or hide the lock screen / notification player; missing in older builds. */
   setLockScreenControls?(enabled: boolean): Promise<void>;
   getState(): Promise<(PlaybackStateEvent & { keys: string[] }) | null>;

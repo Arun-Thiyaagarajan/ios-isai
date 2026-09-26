@@ -1,3 +1,4 @@
+import { StatusBar } from 'expo-status-bar';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
@@ -104,6 +105,15 @@ export function PlayerThemeProvider({
       </PlayerThemeContext.Provider>
     </AppAccentContext.Provider>
   );
+}
+
+/**
+ * Status bar content for a full-screen player: light over the (usually dark) player background in
+ * every app theme, dark only when the player itself is light (e.g. Isai Mono in light mode).
+ */
+export function PlayerStatusBar() {
+  const { tokens } = usePlayerTheme();
+  return <StatusBar style={tokens.scheme === 'dark' ? 'light' : 'dark'} animated />;
 }
 
 export function usePlayerTheme(): PlayerThemeValue {
