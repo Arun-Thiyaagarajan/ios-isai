@@ -45,8 +45,10 @@ export function PlayerThemeScreen() {
   const available = PLAYER_THEMES[selected].options;
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    // The scroll view must be the sheet's root on iOS (a flex wrapper around it collapses to zero
+    // height inside a form sheet); the sliders' gesture root lives inside it instead.
+    <ScrollView style={styles.root} contentContainerStyle={styles.contentOuter}>
+      <GestureHandlerRootView style={styles.content}>
         <View style={styles.header}>
           <Text variant="title2" accessibilityRole="header">
             Player Theme
@@ -122,8 +124,8 @@ export function PlayerThemeScreen() {
             </View>
           </View>
         ) : null}
-      </ScrollView>
-    </GestureHandlerRootView>
+      </GestureHandlerRootView>
+    </ScrollView>
   );
 }
 
@@ -256,8 +258,10 @@ function Segmented<T extends string>({
 
 const useStyles = makeStyles((t) => ({
   root: {
-    flex: 1,
     backgroundColor: t.colors.bgElevated,
+  },
+  contentOuter: {
+    flexGrow: 1,
   },
   content: {
     paddingHorizontal: t.gutter,
