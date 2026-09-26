@@ -1,0 +1,974 @@
+# Premium UI, Themes & Music Player Customization — Additional Requirements
+
+Continue from the previous React Native music-player planning prompt.
+
+Now focus specifically on the **visual design system, themes, Now Playing screen customization, playback progress styles, animations, and premium UX**.
+
+The application should feel like a **high-end native music application**, with Apple Music-level attention to detail, polish, spacing, typography, animation, responsiveness, and interaction quality.
+
+Do NOT copy Apple Music, Oto Music, Spotify, or any other application's proprietary UI exactly.
+
+Use them only as **design-quality and UX references**.
+
+The final product must have its own visual identity.
+
+---
+
+# 1. Theme System — LIMITED THEMES ONLY
+
+Do NOT create dozens of themes.
+
+The application should have **only 4–5 carefully designed premium themes**.
+
+Every theme must feel production-quality and intentionally designed.
+
+Suggested theme structure:
+
+### Theme 1 — Pure Black
+
+* Deep black background
+* High-contrast white typography
+* Subtle secondary surfaces
+* Minimal accent color
+* Excellent OLED experience
+* Very clean and sophisticated
+
+### Theme 2 — Midnight
+
+* Deep blue/black atmosphere
+* Soft cool surfaces
+* Elegant accent color
+* Premium night-time feeling
+* Slightly more expressive than Pure Black
+
+### Theme 3 — Aurora
+
+* Dark base
+* Subtle colorful accent system
+* Artwork-friendly
+* Sophisticated gradients used sparingly
+* More expressive but still premium
+
+### Theme 4 — Pearl
+
+* Premium light theme
+* Warm/neutral light surfaces
+* Dark typography
+* Subtle elevation
+* Clean and spacious
+* Must not look like a generic white application
+
+### Theme 5 — Dynamic Artwork
+
+* UI accent colors derived from the currently playing album artwork
+* Background and accent colors adapt dynamically
+* Must remain readable and accessible
+* Color extraction must be subtle rather than overwhelming
+
+If implementing 5 themes creates unnecessary complexity, reduce this to **4 themes**.
+
+Quality is more important than quantity.
+
+---
+
+# 2. Theme Design Rules
+
+Every theme must define centralized design tokens for:
+
+* Background
+* Primary surface
+* Secondary surface
+* Elevated surface
+* Primary text
+* Secondary text
+* Disabled text
+* Accent
+* Accent contrast
+* Divider
+* Border
+* Player background
+* Navigation background
+* Card background
+* Overlay
+* Progress track
+* Progress indicator
+* Icon colors
+
+Do NOT hardcode colors inside individual components.
+
+Use a centralized theme system.
+
+For example:
+
+```text
+Theme
+ ├── colors
+ ├── typography
+ ├── spacing
+ ├── radii
+ ├── shadows
+ ├── elevations
+ ├── animations
+ └── playerStyles
+```
+
+Themes should be switchable instantly without restarting the application.
+
+---
+
+# 3. Theme Selection UX
+
+Create a beautiful theme-selection experience inside Settings.
+
+Do NOT use a boring list of radio buttons.
+
+Show:
+
+* Theme preview
+* Theme name
+* Small UI preview
+* Selected state
+* Live preview when possible
+
+The user should immediately understand how the application will look before selecting a theme.
+
+Example:
+
+```text
+Appearance
+
+Theme
+
+┌──────────────┐
+│              │
+│   Preview    │
+│              │
+│ Pure Black ✓ │
+└──────────────┘
+
+┌──────────────┐
+│              │
+│   Preview    │
+│              │
+│  Midnight    │
+└──────────────┘
+```
+
+The actual implementation should be much more polished than this example.
+
+---
+
+# 4. Separate App Theme and Player Theme
+
+This is important.
+
+Do NOT force the entire application theme to determine the Now Playing screen.
+
+The user should be able to customize:
+
+### Application Theme
+
+Controls:
+
+* Home
+* Library
+* Search
+* Settings
+* Playlists
+* Navigation
+* General UI
+
+AND separately:
+
+### Player Style
+
+Controls the visual appearance of the Now Playing screen.
+
+This allows combinations such as:
+
+```text
+App Theme:
+Pure Black
+
+Player Style:
+Artwork Immersive
+```
+
+or:
+
+```text
+App Theme:
+Pearl
+
+Player Style:
+Minimal Classic
+```
+
+---
+
+# 5. Now Playing Screen — MULTIPLE PLAYER STYLES
+
+The Now Playing screen should support a **limited number of carefully designed player styles**.
+
+Do NOT create 20 player layouts.
+
+Provide approximately **4–5 premium player styles**.
+
+Suggested styles:
+
+### Player Style 1 — Classic
+
+Inspired by the familiar modern music-player structure.
+
+Contains:
+
+* Large centered artwork
+* Song title
+* Artist
+* Progress bar
+* Playback controls
+* Secondary actions
+
+Simple and timeless.
+
+---
+
+### Player Style 2 — Oto-Inspired
+
+Take inspiration from the customization philosophy and information density commonly found in advanced Android music players.
+
+Do NOT copy Oto Music's exact UI.
+
+Potential characteristics:
+
+* Artwork
+* Detailed metadata
+* More visible playback controls
+* Queue/action shortcuts
+* Additional information
+* Customizable control arrangement
+
+The goal is:
+
+**powerful without becoming cluttered.**
+
+---
+
+### Player Style 3 — Immersive Artwork
+
+Make the album artwork the primary visual element.
+
+Features:
+
+* Large artwork
+* Artwork-derived background
+* Subtle blur
+* Dynamic lighting
+* Minimal controls
+* Smooth transitions
+
+The artwork should feel integrated into the environment rather than sitting inside a generic square card.
+
+---
+
+### Player Style 4 — Minimal
+
+Very clean.
+
+Focus on:
+
+* Artwork
+* Song
+* Artist
+* Progress
+* Core playback controls
+
+Extremely little visual noise.
+
+Suitable for users who prefer a simple player.
+
+---
+
+### Player Style 5 — Modern Glass
+
+A platform-modern design using:
+
+* Translucent surfaces
+* Blur
+* Subtle depth
+* Floating controls
+* Liquid-glass-inspired components
+
+This should particularly shine on iOS.
+
+Do NOT turn everything into transparent glass.
+
+Use glass selectively.
+
+---
+
+# 6. Player Style Selection
+
+Create a dedicated:
+
+**Settings → Player → Player Style**
+
+screen.
+
+Show live visual previews.
+
+Example:
+
+```text
+Player Style
+
+[ Large Preview ]
+
+○ Classic
+
+[ Large Preview ]
+
+○ Oto-Inspired
+
+[ Large Preview ]
+
+○ Immersive Artwork
+
+[ Large Preview ]
+
+○ Minimal
+
+[ Large Preview ]
+
+○ Modern Glass
+```
+
+Selecting a style should update the player immediately.
+
+---
+
+# 7. Progress Bar / Music Time Loader Styles
+
+The user must be able to choose how the music progress indicator looks.
+
+This is NOT just a color setting.
+
+Provide approximately **3–4 polished progress styles**.
+
+### Style 1 — Standard
+
+Traditional:
+
+```text
+──────●────────────
+0:42           3:52
+```
+
+Simple and clean.
+
+### Style 2 — Spotify-Inspired
+
+A thin modern progress indicator with:
+
+* Small thumb
+* Smooth movement
+* Minimal visual weight
+
+Do NOT copy Spotify's exact implementation.
+
+### Style 3 — Apple-Inspired
+
+Elegant:
+
+* Thin progress track
+* Smooth animation
+* Subtle thumb
+* Excellent typography
+* Highly polished interaction
+
+Again, do not copy Apple's exact design.
+
+### Style 4 — Waveform / Visual
+
+Where technically possible:
+
+* Audio waveform representation
+* Progress moves through waveform
+* Smooth scrubbing
+
+If waveform generation is too expensive for the MVP, make this an advanced feature.
+
+---
+
+# 8. Progress Interaction
+
+All progress styles must support:
+
+* Tap to seek
+* Drag to seek
+* Accurate position
+* Smooth animation
+* Haptic feedback where appropriate
+* Current time
+* Remaining time or total duration
+
+Avoid jitter.
+
+The progress animation must remain synchronized with the actual audio engine.
+
+The UI must never become the source of truth for playback position.
+
+The audio engine should be the source of truth.
+
+---
+
+# 9. Playback Animation Quality
+
+Playback should feel alive.
+
+Examples:
+
+* Play → Pause transition
+* Pause → Play transition
+* Next-song transition
+* Previous-song transition
+* Artwork transition
+* Mini-player → full player
+* Progress animation
+* Queue opening
+* Favorite animation
+
+Use subtle animations.
+
+Avoid:
+
+* Excessive bouncing
+* Random scaling
+* Constant motion
+* Distracting particles
+* Heavy animations that hurt battery life
+
+The experience should feel **premium, calm, and intentional**.
+
+---
+
+# 10. Album Artwork
+
+Artwork is one of the most important visual elements.
+
+Support:
+
+* Embedded artwork
+* Artwork caching
+* High-quality artwork
+* Fallback artwork
+* Rounded artwork
+* Full-bleed artwork
+* Artwork-based dynamic colors
+
+Allow the player style to determine the artwork presentation.
+
+For example:
+
+```text
+Classic
+→ Rounded / centered artwork
+
+Immersive
+→ Full-screen artwork
+
+Minimal
+→ Smaller artwork
+
+Modern Glass
+→ Artwork behind translucent layers
+```
+
+---
+
+# 11. Dynamic Artwork Background
+
+For the Immersive and Dynamic styles:
+
+1. Extract dominant colors from artwork.
+2. Generate a subtle background.
+3. Ensure text contrast.
+4. Avoid extreme saturation.
+5. Apply blur where appropriate.
+6. Animate transitions between songs smoothly.
+
+When the song changes:
+
+```text
+Old artwork
+      ↓
+Color transition
+      ↓
+New artwork
+      ↓
+Background transition
+```
+
+Do not instantly change the entire screen.
+
+---
+
+# 12. Mini Player
+
+The mini player must adapt to the selected theme.
+
+It should include:
+
+* Artwork
+* Song
+* Artist
+* Play/pause
+* Progress indication
+* Gesture interaction
+
+It should feel like a continuation of the full player.
+
+When expanded:
+
+```text
+Mini Player
+      ↓
+Smooth animated transition
+      ↓
+Now Playing
+```
+
+Avoid simply pushing a new screen with no transition.
+
+---
+
+# 13. Bottom Navigation
+
+Create a premium bottom navigation system.
+
+Potential tabs:
+
+* Home
+* Library
+* Search
+* Playlists
+
+The active tab should have:
+
+* Clear visual state
+* Subtle animation
+* Proper accessibility
+* Theme-aware colors
+
+On iOS, consider the modern translucent/glass navigation treatment.
+
+On Android, adapt the design to Android conventions.
+
+Do not make Android look like a badly copied iOS application.
+
+---
+
+# 14. Apple-Level Design Quality
+
+Use the following as the **quality bar**:
+
+### Typography
+
+* Clear hierarchy
+* Carefully chosen font sizes
+* Proper line heights
+* Correct font weights
+* Dynamic text handling
+* No accidental text clipping
+
+### Spacing
+
+Use a consistent spacing system.
+
+For example:
+
+```text
+4
+8
+12
+16
+20
+24
+32
+40
+48
+```
+
+Do not randomly use:
+
+```text
+13
+17
+19
+27
+31
+```
+
+unless there is a specific design reason.
+
+### Alignment
+
+Everything must align intentionally.
+
+Pay particular attention to:
+
+* Artwork
+* Text
+* Icons
+* Buttons
+* Progress bars
+* Bottom navigation
+* Player controls
+* Cards
+
+No visually "almost aligned" elements.
+
+---
+
+# 15. Icons
+
+Use one consistent icon family.
+
+Do not mix:
+
+* Filled icons
+* Outlined icons
+* Random SVG icons
+* Different icon styles
+
+unless intentionally required.
+
+Icon sizes must follow a consistent system.
+
+Provide proper:
+
+* Touch targets
+* Accessibility labels
+* Visual states
+
+---
+
+# 16. Touch & Gesture Design
+
+Support natural mobile interactions.
+
+Examples:
+
+* Swipe artwork
+* Swipe mini player
+* Drag queue items
+* Pull bottom sheets
+* Tap progress
+* Long press songs
+* Context menus
+* Haptic feedback
+
+Gestures should never be the only way to access important functionality.
+
+---
+
+# 17. Light Theme Quality
+
+Do not treat light mode as:
+
+```text
+Dark background → white background
+```
+
+Design it independently.
+
+The Pearl/light theme should have:
+
+* Proper surface hierarchy
+* Subtle shadows
+* Correct contrast
+* Carefully selected neutral colors
+* Premium spacing
+* Appropriate artwork treatment
+
+It should feel intentionally designed.
+
+---
+
+# 18. Dark Theme Quality
+
+Dark themes should not simply use:
+
+```text
+background: #000
+everything else: #222
+```
+
+Create multiple surface levels.
+
+For example:
+
+```text
+Base
+Surface
+Elevated Surface
+Floating Surface
+Overlay
+```
+
+Use contrast carefully.
+
+Pure black should primarily be reserved for the OLED-oriented theme.
+
+---
+
+# 19. iOS Liquid Glass
+
+Use the modern iOS Liquid Glass visual direction selectively.
+
+Potential locations:
+
+* Bottom navigation
+* Mini player
+* Floating controls
+* Player controls
+* Sheets
+* Menus
+* Floating buttons
+
+Do NOT apply glass to:
+
+* Every card
+* Every text area
+* Every button
+* Every screen background
+
+The content must remain the visual focus.
+
+On Android, implement a platform-appropriate equivalent rather than blindly reproducing iOS glass.
+
+---
+
+# 20. Android vs iOS
+
+The application should share:
+
+* Business logic
+* Database
+* Audio state
+* Theme architecture
+* Core components
+
+But visual behavior may differ where platform conventions require it.
+
+For example:
+
+### iOS
+
+Prioritize:
+
+* Liquid Glass
+* Safe areas
+* Haptics
+* Sheets
+* Native-feeling navigation
+* iOS media controls
+
+### Android
+
+Prioritize:
+
+* Material interaction patterns
+* Android media controls
+* Back gesture
+* MediaStore
+* Android notification player
+* Platform-appropriate bottom navigation
+
+Both should feel like the same product.
+
+---
+
+# 21. Design System Requirements
+
+Create reusable components such as:
+
+```text
+AppButton
+AppIconButton
+AlbumArtwork
+SongRow
+AlbumCard
+ArtistCard
+PlaylistCard
+MiniPlayer
+NowPlayingControls
+ProgressBar
+QueueSheet
+BottomSheet
+ThemePreview
+PlayerStylePreview
+SectionHeader
+SearchBar
+EmptyState
+LoadingState
+ContextMenu
+```
+
+Every component must be theme-aware.
+
+Avoid duplicating UI code for every theme.
+
+---
+
+# 22. Customization Limits
+
+Customization should NOT become overwhelming.
+
+The user should have a small number of meaningful choices:
+
+```text
+Appearance
+ ├── App Theme
+ │    ├── Pure Black
+ │    ├── Midnight
+ │    ├── Aurora
+ │    ├── Pearl
+ │    └── Dynamic Artwork
+ │
+ ├── Player Style
+ │    ├── Classic
+ │    ├── Oto-Inspired
+ │    ├── Immersive Artwork
+ │    ├── Minimal
+ │    └── Modern Glass
+ │
+ └── Progress Style
+      ├── Standard
+      ├── Modern
+      ├── Apple-Inspired
+      └── Waveform
+```
+
+Do not add unnecessary customization options just because they are technically possible.
+
+---
+
+# 23. Quality Constraints
+
+The final UI must satisfy these constraints:
+
+* Apple Music-level polish as a quality benchmark
+* Oto Music-level depth of music-player functionality
+* Spotify-level smoothness where appropriate
+* Original visual identity
+* No direct cloning
+* Limited themes
+* Limited player styles
+* Consistent spacing
+* Consistent typography
+* Consistent iconography
+* Excellent dark mode
+* Excellent light mode
+* Smooth animations
+* Smooth gestures
+* Excellent artwork handling
+* Responsive layout
+* Accessibility
+* High performance
+* No unnecessary visual complexity
+
+---
+
+# 24. Design Review Before Implementation
+
+Before generating UI code, provide:
+
+### A. Design System
+
+Show:
+
+* Color tokens
+* Typography scale
+* Spacing scale
+* Radius scale
+* Icon sizes
+* Elevation
+* Animation durations
+
+### B. Theme Matrix
+
+Create a table showing the 4–5 themes and their:
+
+* Background
+* Surface
+* Text
+* Accent
+* Player treatment
+* Navigation treatment
+
+### C. Player Style Matrix
+
+Create a table comparing:
+
+* Classic
+* Oto-Inspired
+* Immersive Artwork
+* Minimal
+* Modern Glass
+
+### D. Progress Style Matrix
+
+Compare:
+
+* Standard
+* Modern
+* Apple-Inspired
+* Waveform
+
+### E. Screen Specifications
+
+For every major screen explain:
+
+* Layout
+* Components
+* Spacing
+* Typography
+* Interactions
+* Animation
+* Theme behavior
+* Responsive behavior
+
+---
+
+# 25. Final Instruction
+
+Do NOT start generating the full application yet.
+
+First produce the complete **visual design specification and UX plan**.
+
+Then identify any conflicts between:
+
+* React Native
+* iOS
+* Android
+* Liquid Glass
+* Background audio
+* Performance
+* Dynamic artwork
+* Waveforms
+* Accessibility
+
+Resolve those conflicts before implementation.
+
+The final target is:
+
+**A premium local music player with the functional depth of an advanced Android music player, the polish of a first-party Apple-quality application, smooth modern interactions, and a restrained customization system with only a handful of genuinely excellent themes.**
+
+Quality > quantity.
+
+Polish > features.
+
+Consistency > excessive customization.
+
+Performance > visual gimmicks.

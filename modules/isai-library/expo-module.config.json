@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["IsaiLibraryModule"]
+  },
+  "android": {
+    "modules": ["app.isai.library.IsaiLibraryModule"]
+  }
+}
