@@ -81,6 +81,8 @@ export const albums = sqliteTable(
     }),
     /** Disambiguates same-titled albums without an album artist (usually the folder path). */
     groupHint: text('group_hint').notNull().default(''),
+    /** Album artist, the single track artist, or "Various Artists"; computed after each scan. */
+    displayArtist: text('display_artist').notNull().default(''),
     year: integer('year'),
     artworkKey: text('artwork_key'),
     // Palette colors extracted natively when the thumbnail is generated.

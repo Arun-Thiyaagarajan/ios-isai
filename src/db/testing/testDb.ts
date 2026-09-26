@@ -3,6 +3,13 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'node:path';
 
+import {
+  ScanContext,
+  beginScan,
+  finishScan,
+  upsertTracks,
+  type ScannedTrack,
+} from '../repos/library';
 import * as schema from '../schema';
 import type { AppDatabase } from '../types';
 
@@ -40,4 +47,41 @@ export function insertSong(
     .returning({ id: schema.songs.id })
     .get();
   return row.id;
+}
+
+/** A scanned file with sensible defaults, for library tests. */
+export function makeTrack(overrides: Partial<ScannedTrack> = {}): ScannedTrack {
+  return {
+    source: 'mediastore',
+    sourceId: '1',
+    rootId: null,
+    uri: 'content://media/1',
+    fileName: 'song.mp3',
+    folderPath: 'Music/Artist/Album',
+    fileSize: 1000,
+    mime: 'audio/mpeg',
+    dateAdded: 1000,
+    dateModified: 1000,
+    durationMs: 200_000,
+    bitrate: null,
+    title: 'Song',
+    artist: 'Artist',
+    album: 'Album',
+    albumArtist: null,
+    genre: null,
+    year: null,
+    trackNo: null,
+    discNo: null,
+    hasArt: false,
+    isPlayable: true,
+    unplayableReason: null,
+    ...overrides,
+  };
+}
+
+/** Runs a full scan of exactly these files (MediaStore source). */
+export function scanTracks(db: AppDatabase, tracks: ScannedTrack[], now = Date.now()): void {
+  const generation = beginScan(db);
+  upsertTracks(db, new ScanContext(generation), tracks);
+  finishScan(db, generation, { sources: ['mediastore'] }, now);
 }

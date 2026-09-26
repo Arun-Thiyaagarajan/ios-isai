@@ -11,7 +11,7 @@ import { formatCount } from '@/lib/format';
 
 import { addMusicFolder, requestLibraryAccess, scanLibrary } from './scanService';
 import { useScanStore } from './scanStore';
-import { SongList } from './SongList';
+import { LibraryHome } from './screens/LibraryHome';
 
 function ScanProgress() {
   const theme = useTheme();
@@ -123,7 +123,7 @@ export function LibraryScreen() {
     );
   }
 
-  return <SongList total={songCount.data} />;
+  return <LibraryHome />;
 }
 
 const useStyles = makeStyles((t) => ({

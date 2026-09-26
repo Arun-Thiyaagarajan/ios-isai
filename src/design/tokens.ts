@@ -165,6 +165,19 @@ export const sizes = {
   icon: { sm: 16, md: 20, lg: 24, xl: 28 },
 } as const;
 
+// ─── Shadows ────────────────────────────────────────────────────────────────
+
+export const shadows = {
+  /** Lifts large artwork (album headers, Now Playing) off the background. */
+  artwork: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+} as const;
+
 // ─── Motion ─────────────────────────────────────────────────────────────────
 
 export const motion = {

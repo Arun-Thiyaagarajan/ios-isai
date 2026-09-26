@@ -16,3 +16,8 @@ android {
     abortOnError false
   }
 }
+
+dependencies {
+  // Extracts dominant colors from album artwork for tinted backgrounds.
+  implementation "androidx.palette:palette-ktx:1.0.0"
+}

@@ -57,6 +57,17 @@ public class IsaiLibraryModule: Module {
       defer { access.stop() }
       return await TagReader.read(base: access.url, paths: paths).map { $0.dictionary }
     }
+
+    /// Saves a square thumbnail of a file's artwork; nil when there is none.
+    AsyncFunction("getArtwork") { (root: String, path: String, key: String, size: Int) async throws -> [String: Any]? in
+      let access = try Self.resolveRoot(root)
+      defer { access.stop() }
+      return await ArtworkExtractor.extract(
+        fileURL: access.url.appendingPathComponent(path),
+        key: key,
+        size: size
+      )
+    }
   }
 
   // MARK: Roots and bookmarks

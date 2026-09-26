@@ -22,6 +22,13 @@
       "when": 1790391306793,
       "tag": "0002_root_bookmark_text",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790394000827,
+      "tag": "0003_album_display_artist",
+      "breakpoints": true
     }
   ]
 }

@@ -50,6 +50,11 @@ class IsaiLibraryModule : Module() {
     AsyncFunction("queryAudio") { afterId: Long, limit: Int, minDurationMs: Int ->
       queryAudio(afterId, limit, minDurationMs)
     }
+
+    /** Saves a square thumbnail of the file's artwork; null when the file has none. */
+    AsyncFunction("getArtwork") { uri: String, key: String, size: Int ->
+      ArtworkExtractor.extract(context, android.net.Uri.parse(uri), key, size)
+    }
   }
 
   private fun projection(): Array<String> {

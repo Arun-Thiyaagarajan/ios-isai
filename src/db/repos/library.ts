@@ -50,6 +50,7 @@ export type ScannedTrack = {
 
 export const UNKNOWN_ARTIST = 'Unknown Artist';
 export const UNKNOWN_ALBUM = 'Unknown Album';
+export const VARIOUS_ARTISTS = 'Various Artists';
 
 /** Files not seen for this long are removed for good (with their play counts). */
 const PURGE_MISSING_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
@@ -323,6 +324,14 @@ export function finishScan(db: AppDatabase, generation: number, scope: ScanScope
         year = (SELECT max(s.year) FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1)
     `);
     tx.run(sql`
+      UPDATE albums SET display_artist = coalesce(
+        (SELECT name FROM artists WHERE id = albums.album_artist_id),
+        (SELECT CASE WHEN count(DISTINCT s.artist_display) <= 1 THEN max(s.artist_display) ELSE ${VARIOUS_ARTISTS} END
+         FROM songs s WHERE s.album_id = albums.id AND s.is_available = 1),
+        ''
+      )
+    `);
+    tx.run(sql`
       UPDATE artists SET
         song_count = (SELECT count(*) FROM song_artists sa JOIN songs s ON s.id = sa.song_id
                       WHERE sa.artist_id = artists.id AND sa.role = 'artist' AND s.is_available = 1),
@@ -418,37 +427,8 @@ export function removeRoot(db: AppDatabase, rootId: number): void {
 
 // ─── Reading ────────────────────────────────────────────────────────────────
 
-export type SongListItem = {
-  id: number;
-  title: string;
-  artist: string;
-  album: string | null;
-  durationMs: number;
-  isPlayable: boolean;
-};
-
 export function countSongs(db: AppDatabase): number {
   return db.get<{ n: number }>(sql`SELECT count(*) AS n FROM songs WHERE is_available = 1`)?.n ?? 0;
-}
-
-/** One page of songs in title order. Offset paging over the title index stays fast at 50k rows. */
-export function listSongs(db: AppDatabase, offset: number, limit: number): SongListItem[] {
-  return db
-    .select({
-      id: songs.id,
-      title: songs.title,
-      artist: songs.artistDisplay,
-      album: albums.title,
-      durationMs: songs.durationMs,
-      isPlayable: songs.isPlayable,
-    })
-    .from(songs)
-    .leftJoin(albums, eq(albums.id, songs.albumId))
-    .where(eq(songs.isAvailable, true))
-    .orderBy(asc(songs.titleSort), asc(songs.id))
-    .limit(limit)
-    .offset(offset)
-    .all();
 }
 
 // ─── Music folders (include / exclude) ──────────────────────────────────────
@@ -527,4 +507,52 @@ export function setLastScanAt(db: AppDatabase, at: number): void {
     .values({ key: 'lastScanAt', value: String(at) })
     .onConflictDoUpdate({ target: scanState.key, set: { value: String(at) } })
     .run();
+}
+
+// ─── Artwork ────────────────────────────────────────────────────────────────
+
+export type ArtworkColors = { primary: string; secondary: string; on: string };
+
+/** A song to extract an album's artwork from (prefers files known to contain art). */
+export function getArtworkSourceSong(db: AppDatabase, albumId: number) {
+  return db
+    .select({
+      uri: songs.uri,
+      source: songs.source,
+      sourceId: songs.sourceId,
+      rootId: songs.rootId,
+      bookmark: libraryRoots.bookmark,
+    })
+    .from(songs)
+    .leftJoin(libraryRoots, eq(libraryRoots.id, songs.rootId))
+    .where(and(eq(songs.albumId, albumId), eq(songs.isAvailable, true)))
+    .orderBy(sql`${songs.hasArt} DESC`, asc(songs.discNo), asc(songs.trackNo))
+    .limit(1)
+    .get();
+}
+
+/**
+ * Saves the thumbnail location for an album. `uri: null` records "this album has no artwork"
+ * (stored as an empty key) so it isn't looked up again on every screen.
+ */
+export function setAlbumArtwork(
+  db: AppDatabase,
+  albumId: number,
+  uri: string | null,
+  colors: ArtworkColors | null,
+): void {
+  db.update(albums)
+    .set({
+      artworkKey: uri ?? '',
+      colorPrimary: colors?.primary ?? null,
+      colorSecondary: colors?.secondary ?? null,
+      colorOn: colors?.on ?? null,
+    })
+    .where(eq(albums.id, albumId))
+    .run();
+}
+
+/** Forgets a thumbnail (e.g. the OS cleared the cache) so it's generated again. */
+export function clearAlbumArtwork(db: AppDatabase, albumId: number): void {
+  db.update(albums).set({ artworkKey: null }).where(eq(albums.id, albumId)).run();
 }

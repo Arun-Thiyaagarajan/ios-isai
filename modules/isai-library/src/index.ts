@@ -35,7 +35,15 @@ export type MediaStoreRow = {
   bitrate: number | null;
 };
 
+/** A saved artwork thumbnail and colors picked from it (hex strings). */
+export type ArtworkResult = {
+  uri: string;
+  colors: { primary: string; secondary: string; on: string };
+};
+
 type AndroidLibraryModule = {
+  /** Thumbnail of a MediaStore file's artwork, or null when it has none. */
+  getArtwork(uri: string, key: string, size: number): Promise<ArtworkResult | null>;
   getPermissionsAsync(): Promise<PermissionResponse>;
   requestPermissionsAsync(): Promise<PermissionResponse>;
   getMediaStoreVersion(): string;
@@ -84,6 +92,8 @@ type IosLibraryModule = {
   pickFolder(): Promise<PickedFolder | null>;
   listAudioFiles(root: FolderRootRef): Promise<FolderListing>;
   readTags(root: FolderRootRef, paths: string[]): Promise<FileTags[]>;
+  /** Thumbnail of a file's embedded artwork (or a cover.jpg next to it), or null. */
+  getArtwork(root: FolderRootRef, path: string, key: string, size: number): Promise<ArtworkResult | null>;
 };
 
 // ─── Module access ──────────────────────────────────────────────────────────

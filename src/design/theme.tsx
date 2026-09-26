@@ -8,6 +8,7 @@ import {
   motion,
   palettes,
   radius,
+  shadows,
   sizes,
   spacing,
   typography,
@@ -25,6 +26,7 @@ export type Theme = {
   radius: typeof radius;
   typography: typeof typography;
   sizes: typeof sizes;
+  shadows: typeof shadows;
   motion: typeof motion;
   /** Horizontal screen padding for the current window width. */
   gutter: number;
@@ -58,6 +60,7 @@ export function ThemeProvider({ children, preference = 'system', oledBlack = fal
       radius,
       typography,
       sizes,
+      shadows,
       motion,
       gutter: screenGutter,
     }),

@@ -11,13 +11,13 @@ import {
   getLibraryStats,
   isPathExcluded,
   listMusicFolders,
-  listSongs,
   setFolderExcluded,
   setLastScanAt,
   touchSongs,
   upsertTracks,
   type ScannedTrack,
 } from '../repos/library';
+import { listSongs } from '../repos/browse';
 import { createTestDb } from '../testing/testDb';
 
 function track(overrides: Partial<ScannedTrack> = {}): ScannedTrack {

@@ -16,6 +16,8 @@ export type ArtworkProps = {
   placeholderIcon?: IconName;
   /** Pass the entity id so recycled list rows never flash the previous image. */
   recyclingKey?: string;
+  /** Called when the image file can't be loaded (e.g. the OS cleared the cache). */
+  onError?: () => void;
 };
 
 export function Artwork({
@@ -25,6 +27,7 @@ export function Artwork({
   placeholderColor,
   placeholderIcon = 'song',
   recyclingKey,
+  onError,
 }: ArtworkProps) {
   const theme = useTheme();
   const borderRadius =
@@ -52,6 +55,7 @@ export function Artwork({
           recyclingKey={recyclingKey}
           transition={theme.motion.duration.fast}
           cachePolicy="memory-disk"
+          onError={onError}
         />
       ) : (
         <Icon name={placeholderIcon} size={Math.round(size * 0.4)} color={theme.colors.textTertiary} />
