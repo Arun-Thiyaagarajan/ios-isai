@@ -1,3 +1,3 @@
-import { LyricsSheet } from '@/features/player/LyricsSheet';
+import { LyricsScreen } from '@/features/lyrics/LyricsScreen';
 
-export default LyricsSheet;
+export default LyricsScreen;

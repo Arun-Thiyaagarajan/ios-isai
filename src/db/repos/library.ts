@@ -327,13 +327,34 @@ export function getKnownFiles(
   db: AppDatabase,
   source: SongSource,
   rootId: number | null,
-): Map<string, { dateModified: number; fileSize: number }> {
+): Map<string, KnownFile> {
   const rows = db
-    .select({ sourceId: songs.sourceId, dateModified: songs.dateModified, fileSize: songs.fileSize })
+    .select({
+      sourceId: songs.sourceId,
+      dateModified: songs.dateModified,
+      fileSize: songs.fileSize,
+      isAvailable: songs.isAvailable,
+    })
     .from(songs)
     .where(and(eq(songs.source, source), rootId === null ? isNull(songs.rootId) : eq(songs.rootId, rootId)))
     .all();
-  return new Map(rows.map((r) => [r.sourceId, { dateModified: r.dateModified, fileSize: r.fileSize }]));
+  return new Map(rows.map(({ sourceId, ...file }) => [sourceId, file]));
+}
+
+/** A file the library already knows, as last scanned. */
+export type KnownFile = { dateModified: number; fileSize: number; isAvailable: boolean };
+
+/**
+ * True when a file on disk is exactly what the library already has, so it needn't be read or
+ * written again. A file that was missing and came back counts as changed.
+ */
+export function isUnchanged(known: KnownFile | undefined, file: { dateModified: number; fileSize: number }): boolean {
+  return (
+    known !== undefined &&
+    known.isAvailable &&
+    known.dateModified === file.dateModified &&
+    known.fileSize === file.fileSize
+  );
 }
 
 /** Marks unchanged files as seen by this scan without rewriting them. */
@@ -411,12 +432,24 @@ export function refreshAggregates(db: Runner): void {
 
 export type ScanScope = { sources?: SongSource[]; rootIds?: number[] };
 
+/** How many rows a write statement changed (both SQLite drivers report it as `changes`). */
+function changesOf(result: unknown): number {
+  return (result as { changes?: number } | undefined)?.changes ?? 0;
+}
+
 /**
- * Finishes a scan: files in the scanned scope that weren't seen are marked missing
- * (and purged after 30 days), counts are recomputed, empty entities are removed and
- * the search index is rebuilt.
+ * Finishes a scan: files in the scanned scope that weren't seen are marked missing (and purged
+ * after 30 days). Counts and the search index are only rebuilt when something changed
+ * (`written` = songs the scan inserted or updated; unknown by default, so assume some).
+ * Returns whether the library changed at all, so callers can skip refreshing the screens.
  */
-export function finishScan(db: AppDatabase, generation: number, scope: ScanScope, now = Date.now()): void {
+export function finishScan(
+  db: AppDatabase,
+  generation: number,
+  scope: ScanScope,
+  now = Date.now(),
+  written = Number.POSITIVE_INFINITY,
+): boolean {
   const conditions: SQL[] = [];
   if (scope.sources?.length) {
     conditions.push(inArray(songs.source, scope.sources));
@@ -425,19 +458,30 @@ export function finishScan(db: AppDatabase, generation: number, scope: ScanScope
     conditions.push(inArray(songs.rootId, scope.rootIds));
   }
 
-  db.transaction((tx) => {
+  return db.transaction((tx) => {
+    let changed = written > 0 ? 1 : 0;
     if (conditions.length > 0) {
-      tx.update(songs)
-        .set({ isAvailable: false, missingSince: sql`coalesce(${songs.missingSince}, ${now})` })
-        .where(and(lt(songs.scanGeneration, generation), or(...conditions)))
-        .run();
+      // Only songs that were still available: already-missing ones aren't a new change.
+      changed += changesOf(
+        tx
+          .update(songs)
+          .set({ isAvailable: false, missingSince: sql`coalesce(${songs.missingSince}, ${now})` })
+          .where(and(eq(songs.isAvailable, true), lt(songs.scanGeneration, generation), or(...conditions)))
+          .run(),
+      );
     }
-    tx.delete(songs)
-      .where(and(eq(songs.isAvailable, false), lt(songs.missingSince, now - PURGE_MISSING_AFTER_MS)))
-      .run();
+    changed += changesOf(
+      tx
+        .delete(songs)
+        .where(and(eq(songs.isAvailable, false), lt(songs.missingSince, now - PURGE_MISSING_AFTER_MS)))
+        .run(),
+    );
 
-    refreshAggregates(tx);
-    rebuildSearchIndex(tx);
+    if (changed > 0) {
+      refreshAggregates(tx);
+      rebuildSearchIndex(tx);
+    }
+    return changed > 0;
   });
 }
 
@@ -461,8 +505,13 @@ export function updateRootBookmark(db: AppDatabase, rootId: number, bookmark: st
 }
 
 /** Removing a folder removes its songs too (and their entries in the search index on next scan). */
+/** Forgets a picked folder. Its songs are deleted with it, so totals and search update here. */
 export function removeRoot(db: AppDatabase, rootId: number): void {
-  db.delete(libraryRoots).where(eq(libraryRoots.id, rootId)).run();
+  db.transaction((tx) => {
+    tx.delete(libraryRoots).where(eq(libraryRoots.id, rootId)).run();
+    refreshAggregates(tx);
+    rebuildSearchIndex(tx);
+  });
 }
 
 // ─── Reading ────────────────────────────────────────────────────────────────
@@ -553,7 +602,8 @@ export function setLastScanAt(db: AppDatabase, at: number): void {
  * Bumped whenever the way tags are cleaned up changes (e.g. `cleanMetadata`), so the next scan
  * re-reads every file once instead of skipping unchanged ones.
  */
-export const TAG_RULES_VERSION = 1;
+// 2: .lrc lyrics files next to songs (iOS).
+export const TAG_RULES_VERSION = 2;
 
 export function needsTagRefresh(db: AppDatabase): boolean {
   const row = db.select().from(scanState).where(eq(scanState.key, 'tagRulesVersion')).get();

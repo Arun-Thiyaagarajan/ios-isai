@@ -11,6 +11,7 @@ export { Marquee } from './components/Marquee';
 export { SearchField } from './components/SearchField';
 export { SectionHeader } from './components/SectionHeader';
 export { SettingsGroup } from './components/SettingsGroup';
+export { Slider } from './components/Slider';
 export { Skeleton } from './components/Skeleton';
 export { Surface } from './components/Surface';
 export { SwitchRow } from './components/SwitchRow';

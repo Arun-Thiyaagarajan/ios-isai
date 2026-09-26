@@ -56,6 +56,8 @@ final class PlaybackEngine: NSObject {
   private var endObserver: NSObjectProtocol?
   private var resolvedRoots: [String: URL] = [:]
   private var artworkCache: (uri: String, artwork: MPMediaItemArtwork)?
+  /// "Show player on lock screen". Off: no Now Playing info and no remote commands.
+  private var lockScreenControls = true
 
   private override init() {
     super.init()
@@ -153,7 +155,10 @@ final class PlaybackEngine: NSObject {
   }
 
   func seek(to ms: Double) {
-    player.seek(to: CMTime(seconds: max(ms, 0) / 1000, preferredTimescale: 600)) { [weak self] _ in
+    // Exact seek: AVPlayer's default tolerance lets it land on the nearest convenient point, which
+    // in MP3/AAC files can be seconds away (the seek bar felt "sticky" to fixed spots).
+    let target = CMTime(seconds: max(ms, 0) / 1000, preferredTimescale: 600)
+    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
       self?.emitState()
       self?.updateNowPlayingPlayback()
     }
@@ -187,6 +192,23 @@ final class PlaybackEngine: NSObject {
     guard entries.indices.contains(target) else { return }
     emitTransition(completed: false, toIndex: target)
     load(target, positionMs: 0, play: true)
+  }
+
+  /// Shows or hides the lock screen / Control Center player. Playback itself is unaffected.
+  func setLockScreenControls(_ enabled: Bool) {
+    lockScreenControls = enabled
+    let center = MPRemoteCommandCenter.shared()
+    for command in [
+      center.playCommand, center.pauseCommand, center.togglePlayPauseCommand,
+      center.nextTrackCommand, center.previousTrackCommand, center.changePlaybackPositionCommand,
+    ] {
+      command.isEnabled = enabled
+    }
+    if enabled {
+      updateNowPlayingInfo()
+    } else {
+      MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
   }
 
   func setRepeat(_ mode: String) {
@@ -249,7 +271,7 @@ final class PlaybackEngine: NSObject {
 
     player.replaceCurrentItem(with: item)
     if positionMs > 0 {
-      player.seek(to: CMTime(seconds: positionMs / 1000, preferredTimescale: 600))
+      player.seek(to: CMTime(seconds: positionMs / 1000, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
     }
     if play {
       activateSession()
@@ -429,7 +451,7 @@ final class PlaybackEngine: NSObject {
   }
 
   private func updateNowPlayingInfo() {
-    guard entries.indices.contains(index) else { return }
+    guard lockScreenControls, entries.indices.contains(index) else { return }
     let entry = entries[index]
     var info: [String: Any] = [
       MPMediaItemPropertyTitle: entry.title,
@@ -448,7 +470,7 @@ final class PlaybackEngine: NSObject {
   }
 
   private func updateNowPlayingPlayback() {
-    guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
+    guard lockScreenControls, var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else { return }
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentSeconds
     info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
     info[MPMediaItemPropertyPlaybackDuration] = currentDurationMs / 1000

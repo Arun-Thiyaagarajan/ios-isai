@@ -7,6 +7,7 @@ import {
 } from '@modules/isai-audio';
 import { AppState, Platform } from 'react-native';
 
+import { config } from '@/config';
 import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
 import { queryKeys } from '@/db/queryKeys';
@@ -385,6 +386,17 @@ function restore() {
 
 let started = false;
 
+/** Lock screen / notification player: on only when the build allows it and the setting is on. */
+function applyLockScreenSetting() {
+  const enabled = config.lockScreenPlayer && useSettings.getState().lockScreenPlayer;
+  native(async () => {
+    const engine = audio();
+    if (typeof engine.setLockScreenControls === 'function') {
+      await engine.setLockScreenControls(enabled);
+    }
+  });
+}
+
 /** Connects to the audio engine and restores the last queue (paused). Call once at startup. */
 export function startPlayer() {
   if (started || !isAudioAvailable) return;
@@ -396,6 +408,12 @@ export function startPlayer() {
     usePlayerStore.setState({ lastError: event.message });
     const item = usePlayerStore.getState().queue.items.find((i) => i.key === event.key);
     showToast(item ? `Couldn’t play “${item.title}”. Skipped.` : 'A song couldn’t be played.');
+  });
+  applyLockScreenSetting();
+  useSettings.subscribe((state, previous) => {
+    if (state.lockScreenPlayer !== previous.lockScreenPlayer) {
+      applyLockScreenSetting();
+    }
   });
   if (useSettings.getState().restoreQueue) {
     restore();

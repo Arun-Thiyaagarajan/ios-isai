@@ -40,6 +40,10 @@ public class IsaiAudioModule: Module {
     AsyncFunction("skipToNext") { self.engine.skipToNext() }.runOnQueue(.main)
     AsyncFunction("skipToPrevious") { self.engine.skipToPrevious() }.runOnQueue(.main)
     AsyncFunction("skipTo") { (index: Int) in self.engine.skip(to: index) }.runOnQueue(.main)
+    AsyncFunction("setLockScreenControls") { (enabled: Bool) in
+      self.engine.setLockScreenControls(enabled)
+    }.runOnQueue(.main)
+
     AsyncFunction("setRepeatMode") { (mode: String) in self.engine.setRepeat(mode) }.runOnQueue(.main)
 
     // Output controls for Now Playing: the system volume slider and the AirPlay/Bluetooth picker.

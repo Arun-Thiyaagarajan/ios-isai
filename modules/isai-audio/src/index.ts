@@ -67,6 +67,8 @@ type IsaiAudioModule = {
   skipToPrevious(): Promise<void>;
   skipTo(index: number): Promise<void>;
   setRepeatMode(mode: NativeRepeatMode): Promise<void>;
+  /** Show or hide the lock screen / notification player; missing in older builds. */
+  setLockScreenControls?(enabled: boolean): Promise<void>;
   getState(): Promise<(PlaybackStateEvent & { keys: string[] }) | null>;
   /** Android only: media volume 0…1. (iOS changes volume through `VolumeView`.) */
   getVolume?(): number;

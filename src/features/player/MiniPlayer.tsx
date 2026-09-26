@@ -6,6 +6,7 @@ import { Animated, PanResponder, Pressable, StyleSheet, View } from 'react-nativ
 import { IconButton, Surface, Text, makeStyles, useReducedMotion, useTheme } from '@/design';
 import { AlbumArtwork } from '@/features/library/components/AlbumArtwork';
 import { useSettings } from '@/features/settings/settingsStore';
+import { PlayerThemeProvider, usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
 
 import { skipToNext, skipToPrevious, togglePlayPause } from './playerService';
 import { useCurrentItem, useIsPlaying } from './playerStore';
@@ -138,21 +139,34 @@ type Props = {
 
 /** The song that's playing, above the tab bar. Tap to open Now Playing; swipe to change songs. */
 export function MiniPlayer({ variant = 'floating' }: Props) {
-  const local = useStyles();
   const item = useCurrentItem();
-  const swipe = useSwipeToSkip();
 
   if (!item) {
     return null;
   }
 
   if (variant === 'accessory') {
+    // iOS 26: the system draws the glass capsule, so it keeps the app's own colors.
     return <AccessoryContent item={item} />;
   }
 
+  // Elsewhere the bar takes the song's color (the Solid player theme, so text stays readable).
   return (
-    <View style={local.floatingWrap}>
-      <Surface variant="glass" style={local.floating}>
+    <PlayerThemeProvider item={item} themeId="solid">
+      <FloatingMiniPlayer item={item} />
+    </PlayerThemeProvider>
+  );
+}
+
+function FloatingMiniPlayer({ item }: { item: QueueItem }) {
+  const theme = useTheme();
+  const local = useStyles();
+  const swipe = useSwipeToSkip();
+  const { tokens } = usePlayerTheme();
+
+  return (
+    <View style={[local.floatingWrap, theme.shadows.card]}>
+      <Surface variant="tonal" style={[local.floating, { backgroundColor: tokens.background }]}>
         <View style={local.row}>
           <Animated.View style={[local.flexRow, swipe.style]} {...swipe.handlers}>
             <Pressable
@@ -228,9 +242,8 @@ const useStyles = makeStyles((t) => ({
   },
   floating: {
     borderRadius: t.radius.lg,
+    borderCurve: 'continuous',
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: t.colors.border,
     backgroundColor: t.colors.surfaceHigh,
   },
 }));

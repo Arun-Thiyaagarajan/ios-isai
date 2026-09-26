@@ -22,9 +22,15 @@ final class IsaiVolumeView: ExpoView {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    // MPVolumeView draws its slider at the top of its frame; center it vertically ourselves.
-    let height: CGFloat = 34
-    volumeView.frame = CGRect(x: 0, y: (bounds.height - height) / 2, width: bounds.width, height: height)
+    // MPVolumeView places its slider wherever it likes inside its frame (usually near the top),
+    // so lay it out, then shift the whole view until the slider's track sits exactly on our
+    // vertical center, in line with the speaker icons beside it.
+    volumeView.frame = bounds
+    volumeView.layoutIfNeeded()
+    if let slider {
+      let trackMidY = slider.frame.midY
+      volumeView.frame = bounds.offsetBy(dx: 0, dy: bounds.midY - trackMidY)
+    }
     applyStyle()
   }
 

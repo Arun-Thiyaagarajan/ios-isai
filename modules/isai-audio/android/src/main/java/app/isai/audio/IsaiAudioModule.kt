@@ -197,6 +197,12 @@ class IsaiAudioModule : Module() {
       runCatching { context.startActivity(intent) }.isSuccess
     }.runOnQueue(Queues.MAIN)
 
+    /** Shows or hides the lock screen / notification player. Playback itself is unaffected. */
+    AsyncFunction("setLockScreenControls") { enabled: Boolean ->
+      LockScreenSetting.setEnabled(context, enabled)
+      PlaybackService.instance?.refreshNotification()
+    }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("getState") {
       val c = controller ?: return@AsyncFunction null
       state(c) + mapOf("keys" to (0 until c.mediaItemCount).map { c.getMediaItemAt(it).mediaId })

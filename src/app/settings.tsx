@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
+import { config } from '@/config';
 import { db } from '@/db/client';
 import { queryKeys } from '@/db/queryKeys';
 import { getLibraryStats } from '@/db/repos/library';
@@ -23,6 +24,7 @@ import { useScanStore } from '@/features/library/scanStore';
 import { useSettings, type Settings } from '@/features/settings/settingsStore';
 import { ThemePicker } from '@/features/settings/ThemePicker';
 import { formatCount, formatTimeAgo } from '@/lib/format';
+import { PLAYER_THEMES } from '@/theme/player/themes';
 
 type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
@@ -64,6 +66,8 @@ function SettingSwitch({
 
 function AppearanceSection() {
   const styles = useStyles();
+  const router = useRouter();
+  const playerTheme = useSettings((s) => s.playerTheme);
   const chosen = useSettings((s) => s.theme);
   const matchSystem = useSettings((s) => s.matchSystem);
   const set = useSettings((s) => s.set);
@@ -93,6 +97,13 @@ function AppearanceSection() {
           icon="appearance"
           title="Match System"
           subtitle={`Pearl in light mode, ${darkChoice} in dark mode`}
+        />
+        <ListRow
+          title="Player Theme"
+          subtitle={PLAYER_THEMES[playerTheme].name}
+          onPress={() => router.push('/player-theme')}
+          leading={<RowIcon name="playlists" />}
+          trailing={<Chevron />}
         />
       </SettingsGroup>
     </View>
@@ -134,7 +145,7 @@ function LibrarySection() {
   return (
     <SettingsGroup title="Library" footer={footer}>
       <ListRow
-        title="Scan for Music"
+        title="Rescan Library"
         subtitle={lastScan}
         disabled={scanning}
         onPress={() => scanLibrary()}
@@ -152,8 +163,8 @@ function LibrarySection() {
       <SettingSwitch
         setting="autoScan"
         icon="autoScan"
-        title="Scan When Isai Opens"
-        subtitle="Finds new, changed and deleted songs"
+        title="Check for New Music"
+        subtitle="Looks for added and deleted songs when Isai opens"
       />
     </SettingsGroup>
   );
@@ -181,6 +192,14 @@ export default function SettingsScreen() {
           title="Remember Queue"
           subtitle="Pick up where you left off when Isai opens"
         />
+        {config.lockScreenPlayer ? (
+          <SettingSwitch
+            setting="lockScreenPlayer"
+            icon="lockScreen"
+            title="Show Player on Lock Screen"
+            subtitle="Controls on the lock screen and in notifications"
+          />
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup title="Interface">
@@ -189,6 +208,12 @@ export default function SettingsScreen() {
           icon="swipe"
           title="Swipe to Change Songs"
           subtitle="Swipe the mini player left or right"
+        />
+        <SettingSwitch
+          setting="showVolumeSlider"
+          icon="volumeHigh"
+          title="Volume Slider"
+          subtitle="Show a volume control on Now Playing"
         />
         <SettingSwitch setting="showGreeting" icon="greeting" title="Greeting on Home" />
       </SettingsGroup>

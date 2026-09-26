@@ -2,11 +2,11 @@ import { Pressable, View } from 'react-native';
 
 import { Icon, makeStyles, useTheme, type IconName } from '@/design';
 import { selectionHaptic, tapHaptic } from '@/lib/haptics';
+import { usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
 
 import { cycleRepeat, skipToNext, skipToPrevious, toggleShuffle } from '../playerService';
 import { usePlayerStore } from '../playerStore';
 import { PlayPauseButton } from './PlayPauseButton';
-import { PLAYER_BACKGROUND } from './playerColors';
 
 const PLAY_SIZE = 72;
 const SKIP_SIZE = 56;
@@ -15,8 +15,8 @@ const OFF_OPACITY = 0.5;
 
 /** Shuffle · previous · play/pause · next · repeat. */
 export function PlayerControls({ isPlaying }: { isPlaying: boolean }) {
-  const theme = useTheme();
   const styles = useStyles();
+  const { tokens } = usePlayerTheme();
   const shuffle = usePlayerStore((s) => s.queue.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
 
@@ -42,8 +42,8 @@ export function PlayerControls({ isPlaying }: { isPlaying: boolean }) {
       <PlayPauseButton
         isPlaying={isPlaying}
         size={PLAY_SIZE}
-        background={theme.colors.textPrimary}
-        foreground={PLAYER_BACKGROUND}
+        background={tokens.controlBackground}
+        foreground={tokens.controlForeground}
       />
       <SkipButton
         icon="next"

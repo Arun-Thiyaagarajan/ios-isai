@@ -6,6 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanima
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { Icon, makeStyles, useTheme } from '@/design';
+import { useSettings } from '@/features/settings/settingsStore';
 
 const HEIGHT = 36;
 const TRACK_HEIGHT = 4;
@@ -22,6 +23,7 @@ const androidVolume = Platform.OS === 'android' && isAudioAvailable && typeof au
 export function VolumeSlider() {
   const theme = useTheme();
   const styles = useStyles();
+  const enabled = useSettings((s) => s.showVolumeSlider);
 
   const slider =
     Platform.OS === 'ios' && VolumeView ? (
@@ -35,7 +37,7 @@ export function VolumeSlider() {
       <AndroidVolumeSlider />
     ) : null;
 
-  if (!slider) {
+  if (!enabled || !slider) {
     return null;
   }
 

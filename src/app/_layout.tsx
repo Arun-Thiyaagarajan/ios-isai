@@ -10,7 +10,7 @@ import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
 import { ensureSearchIndex } from '@/db/repos/search';
 import { EmptyState, ThemeProvider, useTheme } from '@/design';
-import { scanLibrary } from '@/features/library/scanService';
+import { startLibraryWatcher } from '@/features/library/scanService';
 import { startPlayer } from '@/features/player/playerService';
 import { useSettings } from '@/features/settings/settingsStore';
 import { hideSplashNow, SplashIntro } from '@/features/shell/SplashIntro';
@@ -60,21 +60,17 @@ function RootStack() {
             sheetGrabberVisible: true,
           }}
         />
+        {/* Lyrics fade in over Now Playing, full screen. */}
         <Stack.Screen
           name="lyrics"
-          options={{
-            presentation: 'formSheet',
-            headerShown: false,
-            sheetAllowedDetents: [0.6, 1],
-            sheetGrabberVisible: true,
-          }}
+          options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false }}
         />
         <Stack.Screen
           name="player-theme"
           options={{
             presentation: 'formSheet',
             headerShown: false,
-            sheetAllowedDetents: [0.6, 1],
+            sheetAllowedDetents: [0.75, 1],
             sheetGrabberVisible: true,
           }}
         />
@@ -94,15 +90,13 @@ function App() {
   const themeName = useSettings((s) => s.theme);
   const matchSystem = useSettings((s) => s.matchSystem);
 
-  // Pick up added, changed or deleted music files once per launch (fast when nothing changed),
-  // and reconnect to the player with the last queue (paused).
+  // Reconnect to the player with the last queue (paused), and start the one place that decides
+  // when the library is scanned automatically.
   useEffect(() => {
     // After an upgrade the search index may be empty until the next scan; fill it now.
     ensureSearchIndex(db);
     startPlayer();
-    if (useSettings.getState().autoScan) {
-      scanLibrary();
-    }
+    startLibraryWatcher();
   }, []);
 
   return (

@@ -34,13 +34,15 @@ type Props = {
   item: QueueItem;
   size: number;
   isPlaying: boolean;
+  /** The cover is drawn by the background (Artwork Bleed): keep only the swipe area. */
+  hidden?: boolean;
 };
 
 /**
  * Large square cover. Shrinks a little while paused and springs back on play.
  * Swipe left for the next song, right for the previous one.
  */
-export function PlayerArtwork({ item, size, isPlaying }: Props) {
+export function PlayerArtwork({ item, size, isPlaying, hidden = false }: Props) {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(isPlaying ? 1 : PAUSED_SCALE);
@@ -86,7 +88,7 @@ export function PlayerArtwork({ item, size, isPlaying }: Props) {
   return (
     <GestureDetector gesture={swipe}>
       <Animated.View
-        style={[theme.shadows.artwork, styles.frame, { width: size, height: size }, animated]}
+        style={[!hidden && theme.shadows.artwork, styles.frame, { width: size, height: size }, animated]}
         accessible
         accessibilityRole="image"
         accessibilityLabel={item.album ? `${item.album} artwork` : 'Artwork'}
@@ -96,13 +98,15 @@ export function PlayerArtwork({ item, size, isPlaying }: Props) {
         ]}
         onAccessibilityAction={(e) => (e.nativeEvent.actionName === 'next' ? skipToNext() : skipToPrevious())}
       >
-        <AlbumArtwork
-          albumId={item.albumId}
-          artworkKey={item.artworkUri}
-          size={size}
-          radius={ARTWORK_RADIUS}
-          placeholderIcon="song"
-        />
+        {hidden ? null : (
+          <AlbumArtwork
+            albumId={item.albumId}
+            artworkKey={item.artworkUri}
+            size={size}
+            radius={ARTWORK_RADIUS}
+            placeholderIcon="song"
+          />
+        )}
       </Animated.View>
     </GestureDetector>
   );

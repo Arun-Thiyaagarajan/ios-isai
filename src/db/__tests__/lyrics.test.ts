@@ -17,19 +17,13 @@ describe('getLyrics', () => {
     expect(getLyrics(db, songId(db, '1'))).toBeNull();
   });
 
-  it('returns lyrics from the file, line by line', () => {
+  it('returns lyrics from the file as saved', () => {
     const db = createTestDb();
-    scanTracks(db, [makeTrack({ sourceId: '1', lyrics: 'First line\r\nSecond line\n\nVerse two' })]);
+    scanTracks(db, [makeTrack({ sourceId: '1', lyrics: '[00:01.00]Hello\n[00:02.00]World' })]);
     expect(getLyrics(db, songId(db, '1'))).toEqual({
-      lines: ['First line', 'Second line', '', 'Verse two'],
+      content: '[00:01.00]Hello\n[00:02.00]World',
       source: 'embedded',
     });
-  });
-
-  it('strips LRC timestamps and header tags', () => {
-    const db = createTestDb();
-    scanTracks(db, [makeTrack({ sourceId: '1', lyrics: '[ar:Someone]\n[00:12.30]Hello\n[00:15.00][01:15.00]Chorus' })]);
-    expect(getLyrics(db, songId(db, '1'))?.lines).toEqual(['Hello', 'Chorus']);
   });
 
   it('prefers lyrics typed in Edit Info', () => {
@@ -37,6 +31,6 @@ describe('getLyrics', () => {
     scanTracks(db, [makeTrack({ sourceId: '1', lyrics: 'from file' })]);
     const id = songId(db, '1');
     saveSongEdits(db, id, { changes: {}, lyrics: 'my words' });
-    expect(getLyrics(db, id)).toEqual({ lines: ['my words'], source: 'user' });
+    expect(getLyrics(db, id)).toEqual({ content: 'my words', source: 'user' });
   });
 });

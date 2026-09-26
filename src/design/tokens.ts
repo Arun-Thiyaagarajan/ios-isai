@@ -170,34 +170,36 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
   pearl: {
     name: 'pearl',
     label: 'Pearl',
-    description: 'Warm, soft light surfaces with deep amber details.',
+    description: 'Soft off-white and near-black ink, with one deep saffron accent.',
     scheme: 'light',
     colors: {
-      bg: '#F7F5F2',
+      // Soft neutral off-white (never pure white), with white cards floating on it.
+      bg: '#F6F5F2',
       bgElevated: '#FFFFFF',
-      surface: '#EEEAE4',
-      surfaceHigh: '#E4DFD7',
+      surface: '#ECEBE7',
+      surfaceHigh: '#E2E1DC',
       card: '#FFFFFF',
-      navBg: '#FBFAF8',
-      playerBg: '#F7F5F2',
-      textPrimary: '#1C1A17',
-      textSecondary: '#5C5750',
-      textTertiary: '#8E887F',
-      textDisabled: '#B9B3AA',
-      icon: '#1C1A17',
-      iconSecondary: '#5C5750',
-      separator: 'rgba(60, 45, 30, 0.12)',
-      border: 'rgba(60, 45, 30, 0.18)',
-      accent: '#A15A12',
-      accentText: '#A15A12',
+      navBg: '#FAF9F7',
+      playerBg: '#F6F5F2',
+      textPrimary: '#111113',
+      textSecondary: '#5E5E64',
+      textTertiary: '#8E8E94',
+      textDisabled: '#BDBDC2',
+      icon: '#111113',
+      iconSecondary: '#5E5E64',
+      // Hairline dividers; depth comes from soft shadows rather than borders.
+      separator: 'rgba(17, 17, 19, 0.08)',
+      border: 'rgba(17, 17, 19, 0.10)',
+      accent: '#A3520B',
+      accentText: '#A3520B',
       onAccent: '#FFFFFF',
-      accentGradient: ['#A15A12', '#A15A12'],
-      progressTrack: 'rgba(60, 45, 30, 0.16)',
-      progressFill: '#1C1A17',
+      accentGradient: ['#A3520B', '#A3520B'],
+      progressTrack: 'rgba(17, 17, 19, 0.12)',
+      progressFill: '#111113',
       danger: '#B3261E',
-      scrim: 'rgba(28, 20, 10, 0.35)',
-      skeleton: '#EAE6E0',
-      placeholder: '#E6E1DA',
+      scrim: 'rgba(17, 17, 19, 0.3)',
+      skeleton: '#ECEBE7',
+      placeholder: '#E6E5E1',
     },
   },
 };
@@ -276,6 +278,14 @@ export const sizes = {
 // ─── Shadows ────────────────────────────────────────────────────────────────
 
 export const shadows = {
+  /** Soft lift for cards and floating bars on light backgrounds (used instead of borders). */
+  card: {
+    shadowColor: '#111113',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
   /** Lifts large artwork (album headers, Now Playing) off the background. */
   artwork: {
     shadowColor: '#000000',

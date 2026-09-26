@@ -36,15 +36,27 @@ export type MediaStoreRow = {
   composer: string | null;
 };
 
+/**
+ * Named colors picked from an image (hex strings), the same six names on iOS and Android.
+ * A name is missing when the image has nothing close to it.
+ */
+export type RawPalette = Partial<
+  Record<'dominant' | 'vibrant' | 'darkVibrant' | 'lightVibrant' | 'muted' | 'darkMuted', string>
+>;
+
 /** A saved artwork thumbnail and colors picked from it (hex strings). */
 export type ArtworkResult = {
   uri: string;
   colors: { primary: string; secondary: string; on: string };
+  /** Missing in builds from before the player themes. */
+  palette?: RawPalette;
 };
 
 type AndroidLibraryModule = {
   /** Thumbnail of a MediaStore file's artwork, or null when it has none. */
   getArtwork(uri: string, key: string, size: number): Promise<ArtworkResult | null>;
+  /** Named colors of a local image; missing in builds from before the player themes. */
+  getImageColors?(uri: string): Promise<RawPalette | null>;
   getPermissionsAsync(): Promise<PermissionResponse>;
   requestPermissionsAsync(): Promise<PermissionResponse>;
   getMediaStoreVersion(): string;
@@ -101,6 +113,8 @@ type IosLibraryModule = {
   readTags(root: FolderRootRef, paths: string[]): Promise<FileTags[]>;
   /** Thumbnail of a file's embedded artwork (or a cover.jpg next to it), or null. */
   getArtwork(root: FolderRootRef, path: string, key: string, size: number): Promise<ArtworkResult | null>;
+  /** Named colors of a local image; missing in builds from before the player themes. */
+  getImageColors?(uri: string): Promise<RawPalette | null>;
 };
 
 // ─── Module access ──────────────────────────────────────────────────────────

@@ -3,13 +3,14 @@ import { Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EmptyState, ThemeScope, makeStyles, useTheme } from '@/design';
+import { EmptyState, makeStyles, useTheme } from '@/design';
+import { PlayerBackground } from '@/theme/player/PlayerBackground';
+import { PlayerThemeProvider, usePlayerTheme } from '@/theme/player/PlayerThemeProvider';
 
 import { PlayerArtwork } from './nowPlaying/PlayerArtwork';
 import { PlayerBottomBar } from './nowPlaying/PlayerBottomBar';
 import { PlayerControls } from './nowPlaying/PlayerControls';
 import { PlayerHeader } from './nowPlaying/PlayerHeader';
-import { PLAYER_BACKGROUND } from './nowPlaying/playerColors';
 import { TrackInfo } from './nowPlaying/TrackInfo';
 import { VolumeSlider } from './nowPlaying/VolumeSlider';
 import { useCurrentItem, useIsPlaying } from './playerStore';
@@ -20,12 +21,13 @@ const PLAYER_MARGIN = 24;
 
 /** Now Playing: header, large artwork, song details, seek bar, controls, volume and bottom bar. */
 export function NowPlayingScreen() {
+  const item = useCurrentItem();
   return (
     // The player is a native modal (its own view hierarchy), so gestures need their own root.
-    <GestureHandlerRootView style={rootStyles.root}>
-      <ThemeScope themeName="pureBlack">
+    <GestureHandlerRootView style={styles.root}>
+      <PlayerThemeProvider item={item}>
         <NowPlaying />
-      </ThemeScope>
+      </PlayerThemeProvider>
     </GestureHandlerRootView>
   );
 }
@@ -35,6 +37,7 @@ function NowPlaying() {
   const local = useStyles();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const player = usePlayerTheme();
   // The artwork gets whatever height is left after everything else, so small phones fit too.
   const [artworkArea, setArtworkArea] = useState(0);
 
@@ -43,7 +46,7 @@ function NowPlaying() {
 
   if (!item) {
     return (
-      <View style={[local.screen, { paddingTop: insets.top }]}>
+      <View style={[local.screen, { paddingTop: insets.top, backgroundColor: player.tokens.background }]}>
         <EmptyState icon="song" title="Nothing playing" message="Choose a song from your library to start listening." />
       </View>
     );
@@ -54,9 +57,17 @@ function NowPlaying() {
   const maxArtwork = width - PLAYER_MARGIN * 2;
   // Before the first layout pass, estimate so the cover doesn't jump in from nothing.
   const artworkSize = Math.floor(Math.min(maxArtwork, artworkArea > 0 ? artworkArea : height * 0.4));
+  // Artwork Bleed draws the cover as part of the background, edge to edge.
+  const bleed = player.background.kind === 'bleed';
 
   return (
-    <View style={local.screen}>
+    <View style={[local.screen, { backgroundColor: player.tokens.background }]}>
+      <PlayerBackground
+        spec={player.background}
+        artworkUri={player.palette.artworkUri}
+        animate={isPlaying}
+        transitionKey={`${player.definition.id}|${player.palette.artworkUri ?? 'none'}`}
+      />
       <View
         style={[
           local.content,
@@ -71,7 +82,7 @@ function NowPlaying() {
           style={local.artworkArea}
           onLayout={(e: LayoutChangeEvent) => setArtworkArea(e.nativeEvent.layout.height)}
         >
-          <PlayerArtwork item={item} size={artworkSize} isPlaying={isPlaying} />
+          <PlayerArtwork item={item} size={artworkSize} isPlaying={isPlaying} hidden={bleed} />
         </View>
 
         <TrackInfo item={item} />
@@ -84,17 +95,15 @@ function NowPlaying() {
   );
 }
 
-const rootStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PLAYER_BACKGROUND,
   },
 });
 
 const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: PLAYER_BACKGROUND,
   },
   content: {
     flex: 1,

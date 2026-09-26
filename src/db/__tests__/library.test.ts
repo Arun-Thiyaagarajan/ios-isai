@@ -10,6 +10,7 @@ import {
   getKnownFiles,
   getLibraryStats,
   isPathExcluded,
+  isUnchanged,
   listMusicFolders,
   markTagsRefreshed,
   needsTagRefresh,
@@ -181,12 +182,35 @@ describe('library scanning', () => {
     const db = createTestDb();
     scan(db, [track({ source: 'documents', sourceId: 'a.mp3' })]);
     const known = getKnownFiles(db, 'documents', null);
-    expect(known.get('a.mp3')).toEqual({ dateModified: 1000, fileSize: 1000 });
+    expect(known.get('a.mp3')).toEqual({ dateModified: 1000, fileSize: 1000, isAvailable: true });
 
     const generation = beginScan(db);
     touchSongs(db, generation, 'documents', ['a.mp3']);
-    finishScan(db, generation, { sources: ['documents'] });
+    // Nothing written, nothing missing: the library didn't change.
+    expect(finishScan(db, generation, { sources: ['documents'] }, Date.now(), 0)).toBe(false);
     expect(countSongs(db)).toBe(1);
+  });
+
+  it('reports a change when songs were written, went missing, or came back', () => {
+    const db = createTestDb();
+    let generation = beginScan(db);
+    upsertTracks(db, new ScanContext(generation), [track({ sourceId: '1' })]);
+    expect(finishScan(db, generation, { sources: ['mediastore'] }, 0, 1)).toBe(true);
+
+    // The file is gone: marked missing, a change.
+    generation = beginScan(db);
+    expect(finishScan(db, generation, { sources: ['mediastore'] }, 1000, 0)).toBe(true);
+    // Still gone: already missing, so no new change.
+    generation = beginScan(db);
+    expect(finishScan(db, generation, { sources: ['mediastore'] }, 2000, 0)).toBe(false);
+  });
+
+  it('only skips files that are unchanged and still available', () => {
+    const file = { dateModified: 5, fileSize: 10 };
+    expect(isUnchanged({ ...file, isAvailable: true }, file)).toBe(true);
+    expect(isUnchanged({ ...file, isAvailable: false }, file)).toBe(false);
+    expect(isUnchanged({ ...file, isAvailable: true }, { ...file, fileSize: 11 })).toBe(false);
+    expect(isUnchanged(undefined, file)).toBe(false);
   });
 
   it('only marks missing within the scanned scope', () => {

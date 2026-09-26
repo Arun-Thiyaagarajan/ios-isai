@@ -55,6 +55,11 @@ class IsaiLibraryModule : Module() {
     AsyncFunction("getArtwork") { uri: String, key: String, size: Int ->
       ArtworkExtractor.extract(context, android.net.Uri.parse(uri), key, size)
     }
+
+    /** Named colors of a local image (file:// or content:// URI); null when it can't be read. */
+    AsyncFunction("getImageColors") { uri: String ->
+      ArtworkExtractor.imageColors(context, android.net.Uri.parse(uri))
+    }
   }
 
   private fun projection(): Array<String> {

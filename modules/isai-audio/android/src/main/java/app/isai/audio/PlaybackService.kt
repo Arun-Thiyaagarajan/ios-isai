@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -15,11 +16,15 @@ import com.google.common.util.concurrent.ListenableFuture
  * Media3 turns the session into the notification, lock-screen controls and Bluetooth/headset
  * button handling, and manages audio focus (calls, other apps) and headphone unplugging.
  */
+@UnstableApi
 class PlaybackService : MediaSessionService() {
   private var session: MediaSession? = null
 
   override fun onCreate() {
     super.onCreate()
+    instance = this
+    // Standard media notification, or a plain one when the lock screen player is turned off.
+    setMediaNotificationProvider(LockScreenNotificationProvider(this))
     val player = ExoPlayer.Builder(this)
       .setAudioAttributes(
         AudioAttributes.Builder()
@@ -46,13 +51,26 @@ class PlaybackService : MediaSessionService() {
     }
   }
 
+  /** Rebuilds the notification after the lock screen setting changed. */
+  fun refreshNotification() {
+    session?.let { triggerNotificationUpdate() }
+  }
+
   override fun onDestroy() {
+    instance = null
     session?.run {
       player.release()
       release()
     }
     session = null
     super.onDestroy()
+  }
+
+  companion object {
+    /** The running service, if any (the module uses it to refresh the notification). */
+    @Volatile
+    var instance: PlaybackService? = null
+      private set
   }
 
   private class SessionCallback : MediaSession.Callback {

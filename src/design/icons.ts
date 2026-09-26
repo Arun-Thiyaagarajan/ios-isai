@@ -42,6 +42,7 @@ export const icons = {
   output: { ios: 'airplay.audio', android: 'speaker_group' },
   volumeLow: { ios: 'speaker.fill', android: 'volume_mute' },
   volumeHigh: { ios: 'speaker.wave.3.fill', android: 'volume_up' },
+  lockScreen: { ios: 'lock.iphone', android: 'screen_lock_portrait' },
   sleepTimer: { ios: 'moon.zzz', android: 'bedtime' },
   equalizer: { ios: 'slider.vertical.3', android: 'equalizer' },
 

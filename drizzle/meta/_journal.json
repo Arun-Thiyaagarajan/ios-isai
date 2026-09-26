@@ -43,6 +43,13 @@
       "when": 1790403582541,
       "tag": "0005_search_index_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790411212987,
+      "tag": "0006_artwork_palettes",
+      "breakpoints": true
     }
   ]
 }

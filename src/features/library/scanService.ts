@@ -1,5 +1,5 @@
 import { androidLibrary, iosLibrary, isLibraryAvailable } from '@modules/isai-library';
-import { Linking, Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 
 import { db } from '@/db/client';
 import { queryClient } from '@/db/queryClient';
@@ -10,6 +10,8 @@ import {
   beginScan,
   finishScan,
   getKnownFiles,
+  getLibraryStats,
+  isUnchanged,
   markTagsRefreshed,
   needsTagRefresh,
   removeRoot,
@@ -22,6 +24,7 @@ import {
   upsertTracks,
   type ScanScope,
 } from '@/db/repos/library';
+import { useSettings } from '@/features/settings/settingsStore';
 
 import { folderFileToTrack, iosFolderPath, mediaStoreRowToTrack, type IosRoot } from './mapTracks';
 import { useScanStore } from './scanStore';
@@ -30,6 +33,8 @@ import { useScanStore } from './scanStore';
 const MIN_DURATION_MS = 10_000;
 const MEDIASTORE_PAGE = 500;
 const TAG_BATCH = 25;
+/** Coming back to the app checks for new music at most this often. */
+const FOREGROUND_CHECK_INTERVAL_MS = 30_000;
 
 /** Name shown for the app's own folder; matches "On My iPhone › Isai" in the Files app. */
 const DOCUMENTS_NAME = 'Isai';
@@ -43,9 +48,14 @@ function setProgress(found: number, step: string) {
   useScanStore.setState({ found, step });
 }
 
+type ScanOutcome = { status: 'done'; changed: boolean } | { status: 'needsPermission' };
+
 /**
  * Scans the device for music and updates the library. Only one scan runs at a time;
  * calling this while a scan is running returns the same promise.
+ *
+ * Unchanged files are skipped, and the library screens are only refreshed when something was
+ * actually added, changed or removed, so a routine check costs little and causes no reloads.
  */
 export function scanLibrary(): Promise<void> {
   if (!isLibraryAvailable) {
@@ -53,13 +63,15 @@ export function scanLibrary(): Promise<void> {
   }
   running ??= (async () => {
     useScanStore.setState({ status: 'scanning', found: 0, step: null, error: null });
+    let changed = true;
     try {
-      const status = Platform.OS === 'android' ? await scanAndroid() : await scanIos();
+      const outcome = Platform.OS === 'android' ? await scanAndroid() : await scanIos();
       const finishedAt = Date.now();
-      if (status === 'done') {
+      if (outcome.status === 'done') {
         setLastScanAt(db, finishedAt);
+        changed = outcome.changed;
       }
-      useScanStore.setState({ status, step: null, lastScanAt: finishedAt });
+      useScanStore.setState({ status: outcome.status, step: null, lastScanAt: finishedAt });
     } catch (error) {
       useScanStore.setState({
         status: 'error',
@@ -68,26 +80,67 @@ export function scanLibrary(): Promise<void> {
       });
     } finally {
       running = null;
-      queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
+      if (changed) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
+      } else {
+        // Nothing changed: only the "Last scanned" time is new.
+        queryClient.invalidateQueries({ queryKey: queryKeys.library.stats() });
+      }
     }
   })();
   return running;
 }
 
+let watching = false;
+
+/**
+ * The only place scans start automatically. Call once at startup:
+ * - first launch (never scanned): scans right away;
+ * - later launches: the library shows from the database immediately, and a background check for
+ *   new music runs if "Check for New Music" is on;
+ * - coming back to the app: the same check, at most every 30 seconds.
+ * Everything else (pull to refresh, Rescan Library, folder changes) calls `scanLibrary` directly.
+ */
+export function startLibraryWatcher(): void {
+  if (watching || !isLibraryAvailable) {
+    return;
+  }
+  watching = true;
+
+  const neverScanned = getLibraryStats(db).lastScanAt === null;
+  if (neverScanned || useSettings.getState().autoScan) {
+    scanLibrary();
+  }
+
+  AppState.addEventListener('change', (state) => {
+    if (state !== 'active' || !useSettings.getState().autoScan) {
+      return;
+    }
+    const last = useScanStore.getState().lastScanAt ?? getLibraryStats(db).lastScanAt ?? 0;
+    if (Date.now() - last >= FOREGROUND_CHECK_INTERVAL_MS) {
+      scanLibrary();
+    }
+  });
+}
+
 // ─── Android ────────────────────────────────────────────────────────────────
 
-async function scanAndroid(): Promise<'done' | 'needsPermission'> {
+async function scanAndroid(): Promise<ScanOutcome> {
   const lib = androidLibrary();
   const permission = await lib.getPermissionsAsync();
   if (!permission.granted) {
-    return 'needsPermission';
+    return { status: 'needsPermission' };
   }
 
   const excluded = listExcludedPaths(db);
   const generation = beginScan(db);
   const ctx = new ScanContext(generation);
+  // After the tag clean-up rules change, every file is written again once so old names get fixed.
+  const refreshAll = needsTagRefresh(db);
+  const known = refreshAll ? new Map() : getKnownFiles(db, 'mediastore', null);
   let afterId = 0;
   let found = 0;
+  let written = 0;
   for (;;) {
     const rows = await lib.queryAudio(afterId, MEDIASTORE_PAGE, MIN_DURATION_MS);
     if (rows.length === 0) {
@@ -95,7 +148,17 @@ async function scanAndroid(): Promise<'done' | 'needsPermission'> {
     }
     // Songs in switched-off folders aren't stored, so they end up hidden after the scan.
     const tracks = rows.map(mediaStoreRowToTrack).filter((t) => !isPathExcluded(t.folderPath, excluded));
-    upsertTracks(db, ctx, tracks);
+    const unchanged: string[] = [];
+    const changedTracks = tracks.filter((track) => {
+      const same = isUnchanged(known.get(track.sourceId), track);
+      if (same) {
+        unchanged.push(track.sourceId);
+      }
+      return !same;
+    });
+    touchSongs(db, generation, 'mediastore', unchanged);
+    upsertTracks(db, ctx, changedTracks);
+    written += changedTracks.length;
     found += tracks.length;
     afterId = Number(rows[rows.length - 1].id);
     setProgress(found, 'Reading your music library');
@@ -106,8 +169,11 @@ async function scanAndroid(): Promise<'done' | 'needsPermission'> {
   }
   setProgress(found, 'Organizing albums and artists');
   await yieldToUi();
-  finishScan(db, generation, { sources: ['mediastore'] });
-  return 'done';
+  const changed = finishScan(db, generation, { sources: ['mediastore'] }, Date.now(), written);
+  if (refreshAll) {
+    markTagsRefreshed(db);
+  }
+  return { status: 'done', changed };
 }
 
 /**
@@ -130,7 +196,7 @@ export async function requestLibraryAccess(): Promise<boolean> {
 
 // ─── iOS ────────────────────────────────────────────────────────────────────
 
-async function scanIos(): Promise<'done'> {
+async function scanIos(): Promise<ScanOutcome> {
   const lib = iosLibrary();
   const excluded = listExcludedPaths(db);
   const generation = beginScan(db);
@@ -138,6 +204,7 @@ async function scanIos(): Promise<'done'> {
   const scope: ScanScope = { sources: ['documents'], rootIds: [] };
   const unavailable: string[] = [];
   let found = 0;
+  let written = 0;
   // After the tag clean-up rules change, every file is read again once so old names get fixed.
   const refreshAll = needsTagRefresh(db);
 
@@ -171,18 +238,14 @@ async function scanIos(): Promise<'done'> {
       updateRootBookmark(db, rootId, listing.refreshedBookmark);
     }
 
-    const known = refreshAll ? new Map<string, never>() : getKnownFiles(db, source, rootId);
+    const known = refreshAll ? new Map() : getKnownFiles(db, source, rootId);
     const idFor = (path: string) => (rootId === null ? path : `${rootId}/${path}`);
     const unchanged: string[] = [];
     const included = listing.files.filter(
       (file) => !isPathExcluded(iosFolderPath(root, file.path), excluded),
     );
-    const changed = included.filter((file) => {
-      const previous = known.get(idFor(file.path));
-      const same =
-        previous !== undefined &&
-        previous.dateModified === file.dateModified &&
-        previous.fileSize === file.fileSize;
+    const changedFiles = included.filter((file) => {
+      const same = isUnchanged(known.get(idFor(file.path)), file);
       if (same) {
         unchanged.push(idFor(file.path));
       }
@@ -192,8 +255,8 @@ async function scanIos(): Promise<'done'> {
     touchSongs(db, generation, source, unchanged);
     found += unchanged.length;
 
-    for (let i = 0; i < changed.length; i += TAG_BATCH) {
-      const batch = changed.slice(i, i + TAG_BATCH);
+    for (let i = 0; i < changedFiles.length; i += TAG_BATCH) {
+      const batch = changedFiles.slice(i, i + TAG_BATCH);
       const tags = await lib.readTags(
         ref,
         batch.map((f) => f.path),
@@ -205,6 +268,7 @@ async function scanIos(): Promise<'done'> {
         ctx,
         batch.map((file) => folderFileToTrack(root, file, tagsByPath.get(file.path), now)),
       );
+      written += batch.length;
       found += batch.length;
       setProgress(found, `Reading songs in “${root.name}”`);
       await yieldToUi();
@@ -213,12 +277,14 @@ async function scanIos(): Promise<'done'> {
 
   setProgress(found, 'Organizing albums and artists');
   await yieldToUi();
-  finishScan(db, generation, scope);
-  if (refreshAll && unavailable.length === 0) {
+  const changed = finishScan(db, generation, scope, Date.now(), written);
+  // Marked even if a folder was unreachable: re-reading everything on every launch until it's
+  // reconnected would make each launch slow. Its songs get the new rules when they next change.
+  if (refreshAll) {
     markTagsRefreshed(db);
   }
   useScanStore.setState({ unavailableFolders: unavailable });
-  return 'done';
+  return { status: 'done', changed };
 }
 
 /** Shows the folder picker, remembers the chosen folder and scans it. Returns false if cancelled. */

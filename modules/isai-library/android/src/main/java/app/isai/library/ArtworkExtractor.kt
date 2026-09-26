@@ -2,6 +2,7 @@ package app.isai.library
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.util.Size
@@ -34,8 +35,33 @@ internal object ArtworkExtractor {
     FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
 
     val colors = colorsOf(bitmap)
+    val palette = paletteOf(bitmap)
     bitmap.recycle()
-    return mapOf("uri" to Uri.fromFile(file).toString(), "colors" to colors)
+    return mapOf("uri" to Uri.fromFile(file).toString(), "colors" to colors, "palette" to palette)
+  }
+
+  /** Named colors of a local image (a saved thumbnail or a custom cover); null if unreadable. */
+  fun imageColors(context: Context, uri: Uri): Map<String, String>? {
+    val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+    val bitmap = try {
+      context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    } catch (e: Exception) {
+      null
+    } ?: return null
+    return paletteOf(bitmap).also { bitmap.recycle() }
+  }
+
+  /** The six named swatches (same names as the iOS extractor); missing ones are left out. */
+  private fun paletteOf(bitmap: Bitmap): Map<String, String> {
+    val palette = Palette.from(bitmap).maximumColorCount(24).generate()
+    return listOfNotNull(
+      palette.dominantSwatch?.let { "dominant" to hex(it.rgb) },
+      palette.vibrantSwatch?.let { "vibrant" to hex(it.rgb) },
+      palette.darkVibrantSwatch?.let { "darkVibrant" to hex(it.rgb) },
+      palette.lightVibrantSwatch?.let { "lightVibrant" to hex(it.rgb) },
+      palette.mutedSwatch?.let { "muted" to hex(it.rgb) },
+      palette.darkMutedSwatch?.let { "darkMuted" to hex(it.rgb) },
+    ).toMap()
   }
 
   private fun colorsOf(bitmap: Bitmap): Map<String, String> {

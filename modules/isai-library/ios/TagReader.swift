@@ -123,7 +123,24 @@ enum TagReader {
         break
       }
     }
+    // A .lrc file next to the song ("Song.lrc" for "Song.mp3") wins: it's usually time-synced.
+    if let sidecar = sidecarLyrics(for: url) {
+      tags.lyrics = sidecar
+    }
     return tags
+  }
+
+  private static func sidecarLyrics(for url: URL) -> String? {
+    let base = url.deletingPathExtension()
+    for ext in ["lrc", "LRC"] {
+      let candidate = base.appendingPathExtension(ext)
+      guard let data = try? Data(contentsOf: candidate), !data.isEmpty else { continue }
+      let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
+      if let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+        return trimmed
+      }
+    }
+    return nil
   }
 
   private static func text(_ item: AVMetadataItem) async -> String? {

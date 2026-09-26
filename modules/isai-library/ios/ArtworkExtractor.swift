@@ -34,7 +34,13 @@ enum ArtworkExtractor {
     } catch {
       return nil
     }
-    return ["uri": file.absoluteString, "colors": colors(of: thumbnail)]
+    return ["uri": file.absoluteString, "colors": colors(of: thumbnail), "palette": PaletteExtractor.palette(of: thumbnail)]
+  }
+
+  /// Named colors of an image file already on disk (a saved thumbnail or a custom cover).
+  static func palette(ofImageAt url: URL) -> [String: String]? {
+    guard let image = UIImage(contentsOfFile: url.path) else { return nil }
+    return PaletteExtractor.palette(of: scaled(image, maxSide: 200))
   }
 
   private static func embeddedArtwork(_ url: URL) async -> Data? {

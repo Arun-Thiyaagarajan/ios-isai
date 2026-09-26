@@ -75,6 +75,11 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
   },
+  extra: {
+    // Build-level feature switches (read in src/config.ts).
+    // false removes the lock screen / notification player and its setting from the app.
+    lockScreenPlayer: true,
+  },
 };
 
 export default config;

@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { db } from '@/db/client';
 import { clearAlbumArtwork, getArtworkSourceSong, setAlbumArtwork } from '@/db/repos/library';
+import { saveArtworkPalette } from '@/db/repos/palettes';
 
 /** One size serves grids, rows and album headers; expo-image downsamples for small views. */
 const THUMBNAIL_SIZE = 600;
@@ -13,6 +14,8 @@ const MAX_CONCURRENT = 2;
 /** Resolved results this session: file URI, or null for "no artwork". */
 const resolved = new Map<number, string | null>();
 const inFlight = new Map<number, Promise<string | null>>();
+/** Albums whose thumbnail was already regenerated once this session after failing to load. */
+const regenerated = new Set<number>();
 const waiting: (() => void)[] = [];
 let active = 0;
 
@@ -74,6 +77,10 @@ export function ensureAlbumArtwork(albumId: number): Promise<string | null> {
         return null;
       }
       setAlbumArtwork(db, albumId, result?.uri ?? null, result?.colors ?? null);
+      // The player's colors come with the thumbnail, so Now Playing never waits for them.
+      if (result?.uri && result.palette) {
+        saveArtworkPalette(db, result.uri, result.palette);
+      }
       resolved.set(albumId, result?.uri ?? null);
       return result?.uri ?? null;
     }).finally(() => inFlight.delete(albumId));
@@ -82,8 +89,16 @@ export function ensureAlbumArtwork(albumId: number): Promise<string | null> {
   return pending;
 }
 
-/** The thumbnail file was deleted (the OS may clear caches): forget it so it's regenerated. */
+/**
+ * The thumbnail file couldn't be loaded (the OS may clear caches): regenerate it, once per session.
+ * If the new file fails too, show the placeholder instead of retrying in a loop.
+ */
 export function artworkFileMissing(albumId: number): void {
+  if (regenerated.has(albumId)) {
+    resolved.set(albumId, null);
+    return;
+  }
+  regenerated.add(albumId);
   resolved.delete(albumId);
   clearAlbumArtwork(db, albumId);
 }

@@ -23,4 +23,6 @@ dependencies {
   def media3 = "1.11.1"
   implementation "androidx.media3:media3-exoplayer:$media3"
   implementation "androidx.media3:media3-session:$media3"
+  // NotificationCompat, for the plain notification when the lock screen player is off.
+  implementation "androidx.core:core-ktx:1.16.0"
 }

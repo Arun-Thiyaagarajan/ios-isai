@@ -334,3 +334,13 @@ export const songOverrides = sqliteTable('song_overrides', {
   dataJson: text('data_json').notNull(),
   updatedAt: integer('updated_at').notNull().default(now),
 });
+
+/**
+ * Colors picked from an artwork image, keyed by the image's file URI (album thumbnails and custom
+ * covers alike). A regenerated thumbnail gets a new file name, so stale colors are never reused.
+ */
+export const artworkPalettes = sqliteTable('artwork_palettes', {
+  uri: text('uri').primaryKey(),
+  paletteJson: text('palette_json').notNull(),
+  updatedAt: integer('updated_at').notNull().default(now),
+});

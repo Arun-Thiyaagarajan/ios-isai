@@ -33,15 +33,18 @@ export function SettingsGroup({ title, footer, withIcons = true, children }: Pro
           {title.toUpperCase()}
         </Text>
       ) : null}
-      <View style={styles.card}>
-        {rows.map((row, index) => (
-          <Fragment key={index}>
-            {index > 0 ? (
-              <View style={[styles.divider, { marginLeft: dividerInset, backgroundColor: theme.colors.separator }]} />
-            ) : null}
-            {row}
-          </Fragment>
-        ))}
+      {/* Light themes lift the card with a soft shadow; the inner view clips the rounded corners. */}
+      <View style={[styles.cardShadow, theme.scheme === 'light' && theme.shadows.card]}>
+        <View style={styles.card}>
+          {rows.map((row, index) => (
+            <Fragment key={index}>
+              {index > 0 ? (
+                <View style={[styles.divider, { marginLeft: dividerInset, backgroundColor: theme.colors.separator }]} />
+              ) : null}
+              {row}
+            </Fragment>
+          ))}
+        </View>
       </View>
       {footer ? (
         <Text variant="footnote" color="secondary" style={styles.footer}>
@@ -61,8 +64,11 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: t.spacing.sm,
     letterSpacing: 0.4,
   },
-  card: {
+  cardShadow: {
     marginHorizontal: t.gutter,
+    borderRadius: t.radius.md,
+  },
+  card: {
     borderRadius: t.radius.md,
     borderCurve: 'continuous',
     overflow: 'hidden',

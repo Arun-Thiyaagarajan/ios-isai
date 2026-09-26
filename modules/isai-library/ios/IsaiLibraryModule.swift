@@ -68,6 +68,12 @@ public class IsaiLibraryModule: Module {
         size: size
       )
     }
+
+    /// Named colors of a local image (file:// URI); nil when it can't be read.
+    AsyncFunction("getImageColors") { (uri: String) -> [String: String]? in
+      guard let url = URL(string: uri), url.isFileURL else { return nil }
+      return ArtworkExtractor.palette(ofImageAt: url)
+    }
   }
 
   // MARK: Roots and bookmarks
